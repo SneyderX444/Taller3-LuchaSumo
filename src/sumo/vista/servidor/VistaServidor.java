@@ -2,9 +2,9 @@ package sumo.vista.servidor;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
-import javax.swing.border.TitledBorder;
 
 /**
  * Vista del servidor en la arquitectura MVC del Combate de Sumo.
@@ -82,13 +82,13 @@ public class VistaServidor extends JFrame {
         lblLuchador1      = crearEtiquetaLuchador("Esperando luchador 1...", COLOR_L1);
         lblLuchador2      = crearEtiquetaLuchador("Esperando luchador 2...", COLOR_L2);
         lblEstadoCombate  = crearEtiquetaEstado("⏳ Aguardando la llegada de los luchadores...");
-        panelGanador      = crearPanelGanador();
-        lblNombreGanador  = (JLabel) panelGanador.getComponent(0);
+        lblNombreGanador  = crearEtiquetaGanador();   // Se crea ANTES que panelGanador
+        panelGanador      = crearPanelGanador(lblNombreGanador);
 
         construirLayout();
     }
 
-    // ─── Construccion del layout ──────────────────────────────────────────────
+    // ─── Construcción del layout ──────────────────────────────────────────────
 
     /**
      * Construye y organiza todos los paneles de la ventana del servidor.
@@ -103,7 +103,7 @@ public class VistaServidor extends JFrame {
     }
 
     /**
-     * Crea el encabezado con el tiitulo y los paneles de los luchadores.
+     * Crea el encabezado con el título y los paneles de los luchadores.
      *
      * @return panel de encabezado
      */
@@ -233,22 +233,32 @@ public class VistaServidor extends JFrame {
     }
 
     /**
-     * Crea el panel de anuncio del ganador (inicialmente oculto).
+     * Crea la etiqueta que mostrará el nombre del ganador al finalizar el combate.
      *
-     * @return panel con fondo llamativo y etiqueta del ganador
+     * @return etiqueta del ganador, inicialmente vacía
      */
-    private JPanel crearPanelGanador() {
+    private JLabel crearEtiquetaGanador() {
+        JLabel lbl = new JLabel("", SwingConstants.CENTER);
+        lbl.setForeground(Color.WHITE);
+        lbl.setFont(new Font("Serif", Font.BOLD, 18));
+        return lbl;
+    }
+
+    /**
+     * Crea el panel de anuncio del ganador (inicialmente oculto).
+     * Recibe la etiqueta ya construida para evitar casts frágiles.
+     *
+     * @param etiquetaGanador etiqueta donde se mostrará el nombre del ganador
+     * @return panel con fondo llamativo que contiene la etiqueta
+     */
+    private JPanel crearPanelGanador(JLabel etiquetaGanador) {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setBackground(new Color(40, 100, 40));
         panel.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(ACENTO, 2),
             new EmptyBorder(10, 10, 10, 10)
         ));
-
-        JLabel lbl = new JLabel("", SwingConstants.CENTER);
-        lbl.setForeground(Color.WHITE);
-        lbl.setFont(new Font("Serif", Font.BOLD, 18));
-        panel.add(lbl, BorderLayout.CENTER);
+        panel.add(etiquetaGanador, BorderLayout.CENTER);
         panel.setVisible(false);
         return panel;
     }

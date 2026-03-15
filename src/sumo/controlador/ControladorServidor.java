@@ -1,6 +1,6 @@
 package sumo.controlador;
 
-import sumo.controlador.interfaces.ICombateObservador;
+import sumo.modelo.interfaces.ICombateObservador;
 import sumo.modelo.Dohyo;
 import sumo.vista.servidor.VistaServidor;
 import java.io.IOException;
@@ -78,23 +78,19 @@ public class ControladorServidor implements ICombateObservador {
      * un {@link HiloLuchador} por cada una. El servidor se cierra después del combate.
      */
     public void iniciarServidor() {
-        vista.mostrarMensaje("🥋 Servidor de Sumo iniciado en el puerto " + PUERTO);
-        vista.mostrarMensaje("⏳ Esperando a los dos luchadores...");
+        actualizarVista("🥋 Servidor de Sumo iniciado en el puerto " + PUERTO);
+        actualizarVista("⏳ Esperando a los dos luchadores...");
 
         try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
             for (int i = 0; i < MAX_LUCHADORES; i++) {
                 Socket socketCliente = serverSocket.accept();
                 int indice = luchadoresConectados.getAndIncrement();
-                vista.mostrarMensaje("📡 Luchador " + (indice + 1) + " conectado desde "
+                actualizarVista("📡 Luchador " + (indice + 1) + " conectado desde "
                         + socketCliente.getInetAddress().getHostAddress());
 
                 HiloLuchador hilo = new HiloLuchador(socketCliente, dohyo, indice);
                 hilo.start();
             }
-
-            // Esperar a que ambos hilos de luchadores terminen
-            // El servidor espera pasivamente; los hilos manejan el combate
-            // El ServerSocket puede cerrarse ahora (no más conexiones)
         } catch (IOException e) {
             actualizarVista("❌ Error en el servidor: " + e.getMessage());
         }

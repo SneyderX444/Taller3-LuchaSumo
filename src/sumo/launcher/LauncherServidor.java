@@ -4,7 +4,7 @@ import sumo.controlador.ControladorServidor;
 import javax.swing.SwingUtilities;
 
 /**
- * Punto de entrada de la aplicacion servidor del Combate de Sumo.
+ * Punto de entrada de la aplicación servidor del Combate de Sumo.
  * <p>
  * Esta clase contiene únicamente el método {@code main}, el cual delega
  * la inicialización al método estático {@link ControladorServidor#iniciar()}.
@@ -33,11 +33,6 @@ public class LauncherServidor {
      * @param args argumentos de línea de comandos (no utilizados)
      */
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            ControladorServidor servidor = new ControladorServidor();
-            Thread hiloServidor = new Thread(servidor::iniciarServidor, "HiloServidorSocket");
-            hiloServidor.setDaemon(false);
-            hiloServidor.start();
-        });
+        SwingUtilities.invokeLater(ControladorServidor::iniciar);
     }
 }

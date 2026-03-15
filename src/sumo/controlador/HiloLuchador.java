@@ -101,11 +101,17 @@ public class HiloLuchador extends Thread {
 
             // ── Paso 4: Bucle de combate ────────────────────────────────────
             while (!dohyo.isCombateTerminado()) {
-                // Espera aleatoria antes de ejecutar el turno (máximo 500 ms)
-                int espera = (int) (Math.random() * Dohyo.MAX_ESPERA_MS);
-                Thread.sleep(espera);
+                /*
+                 * Pausa aleatoria de 0 a MAX_ESPERA_MS ms antes de intentar el turno.
+                 * Simula el tiempo que tarda el luchador en preparar su técnica.
+                 * Esta espera es independiente del timeout interno del dohyō.
+                 */
+                int pausa = (int) (Math.random() * Dohyo.MAX_ESPERA_MS);
+                Thread.sleep(pausa);
 
-                dohyo.ejecutarTurno(indice);
+                if (!dohyo.isCombateTerminado()) {
+                    dohyo.ejecutarTurno(indice);
+                }
             }
 
             // ── Paso 5: Enviar resultado ────────────────────────────────────
@@ -120,8 +126,12 @@ public class HiloLuchador extends Thread {
             String confirmacion = entrada.readLine();
             // "LISTO" recibido: el cliente terminó su ejecución
 
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException e) {
+            // El hilo fue interrumpido externamente: restaurar el flag de interrupción
             Thread.currentThread().interrupt();
+        } catch (IOException e) {
+            // Error de red: el socket se cerró o hubo un problema de comunicación
+            // No se propaga, el finally cerrará el socket limpiamente
         } finally {
             cerrarSocket();
         }

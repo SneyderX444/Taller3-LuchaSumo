@@ -1,7 +1,7 @@
 package sumo.modelo;
 
 import sumo.modelo.interfaces.IArbitro;
-import sumo.controlador.interfaces.ICombateObservador;
+import sumo.modelo.interfaces.ICombateObservador;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -68,6 +68,12 @@ public class Dohyo implements IArbitro {
     /** Generador de números aleatorios para determinar el resultado de cada kimarite. */
     private final Random random;
 
+    /**
+     * Bandera que garantiza que el inicio del combate solo se anuncia una vez,
+     * aunque ambos hilos de luchadores llamen a {@link #esperarAmbosLuchadores()}.
+     */
+    private boolean combateAnunciado;
+
     /** Lista de observadores del combate (patrón Observer). */
     private final List<ICombateObservador> observadores;
 
@@ -79,6 +85,7 @@ public class Dohyo implements IArbitro {
         this.luchadores = new Rikishi[2];
         this.turnoActual = 0;
         this.combateTerminado = false;
+        this.combateAnunciado = false;
         this.ganador = null;
         this.random = new Random();
         this.observadores = new ArrayList<>();
@@ -116,8 +123,9 @@ public class Dohyo implements IArbitro {
      * {@inheritDoc}
      * <p>
      * Bloquea el hilo hasta que ambos luchadores estén presentes en el dohyō.
-     * Una vez ambos están listos, se asignan mutuamente como rivales y se
-     * notifica a los observadores el inicio del combate.
+     * Usa la bandera {@code combateAnunciado} para garantizar que la asignación
+     * de rivales y la notificación de inicio solo ocurran <b>una vez</b>,
+     * aunque ambos hilos de luchadores llamen a este método.
      * </p>
      */
     @Override
@@ -125,9 +133,13 @@ public class Dohyo implements IArbitro {
         while (luchadores[0] == null || luchadores[1] == null) {
             wait();
         }
-        luchadores[0].setRival(luchadores[1]);
-        luchadores[1].setRival(luchadores[0]);
-        notificarCombateIniciado();
+        // Solo el primer hilo en llegar aquí anuncia el inicio del combate
+        if (!combateAnunciado) {
+            combateAnunciado = true;
+            luchadores[0].setRival(luchadores[1]);
+            luchadores[1].setRival(luchadores[0]);
+            notificarCombateIniciado();
+        }
     }
 
     /**
