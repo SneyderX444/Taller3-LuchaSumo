@@ -6,7 +6,7 @@ import javax.swing.SwingUtilities;
 /**
  * Punto de entrada de la aplicación servidor del Combate de Sumo.
  * <p>
- * Esta clase contiene únicamente el método {@code main}, el cual delega
+ * Esta clase contiene unicamente el metodo {@code main}, el cual delega
  * la inicialización al método estático {@link ControladorServidor#iniciar()}.
  * </p>
  *

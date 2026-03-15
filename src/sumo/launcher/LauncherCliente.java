@@ -4,7 +4,7 @@ import sumo.controlador.ControladorCliente;
 import javax.swing.SwingUtilities;
 
 /**
- * Punto de entrada de la aplicación cliente del Combate de Sumo.
+ * Punto de entrada de la aplicacion cliente del Combate de Sumo.
  * <p>
  * Esta clase contiene únicamente el método {@code main}, el cual delega
  * la inicialización al método estático {@link ControladorCliente#iniciar()}.
@@ -27,7 +27,7 @@ import javax.swing.SwingUtilities;
 public class LauncherCliente {
 
     /**
-     * Método de entrada de la aplicación cliente.
+     * Metodo de entrada de la aplicacion cliente.
      * Inicia la interfaz gráfica en el Event Dispatch Thread (EDT) de Swing.
      *
      * @param args argumentos de línea de comandos (no utilizados)
