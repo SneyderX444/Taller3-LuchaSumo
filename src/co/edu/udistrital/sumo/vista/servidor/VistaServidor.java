@@ -3,28 +3,26 @@ package co.edu.udistrital.sumo.vista.servidor;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 
 /**
- * Vista del servidor — Combate de Sumo.
+ * Vista del servidor — Combate de Sumo v5.
  *
- * CORRECCIONES v4:
- * - Sin HTML en ningún componente — solo Java puro (fix #3)
- * - Luchadores visibles desde el inicio como siluetas/imágenes (fix #1)
- * - Al terminar el combate el servidor cierra su ejecución (fix #2)
- * - Silueta negra semitransparente sobre el fondo (fix #5)
- * - Header: íconos pegados al título (fix #4)
- * - Imagen del kimarite centrada sobre el dohyo (fix #7)
- *
- * Recursos en Data/Recursos/:
- *   Dohyo.png, Logo_Sumo.png, japones.png, Luchador1.png, Luchador2.png
- *
- * Data/Imagenes_tecnicas/[NombreKimarite].png  (o .jpg)
+ * CORRECCIONES:
+ * - Íconos pegados al título con BoxLayout (fix #2)
+ * - La ventana se puede cerrar ANTES del combate, no durante (fix #5)
+ * - Al conectarse el segundo luchador, la ventana del servidor sube al frente (fix #6)
+ * - El cierre del servidor lo maneja ControladorServidor cuando recibe
+ *   LISTO de ambos clientes — la vista NUNCA llama System.exit (fix #3)
+ * - Luchadores visibles desde el inicio (fix #1)
+ * - Sin HTML (fix #3)
  *
  * PROHIBIDO: Rikishi/Kimarite, lógica de negocio, sockets, SQL, HTML.
  *
  * @author Grupo Taller 3
- * @version 4.0
+ * @version 5.0
  */
 public class VistaServidor extends JFrame {
 
@@ -40,16 +38,15 @@ public class VistaServidor extends JFrame {
     private static final Color C_BLANCO    = Color.WHITE;
     private static final Color C_TEXTO     = new Color(20, 10, 5);
 
-    // ── Componentes ───────────────────────────────────────────────────────────
-    /** Línea 1 nombre luchador 1 (sin HTML) */
-    private final JLabel lblNombreL1a;
-    /** Línea 2 nombre luchador 1 */
-    private final JLabel lblNombreL1b;
-    /** Línea 1 nombre luchador 2 */
-    private final JLabel lblNombreL2a;
-    /** Línea 2 nombre luchador 2 */
-    private final JLabel lblNombreL2b;
+    // ── Estado del combate — controla si se permite cerrar (fix #5) ───────────
+    /** true cuando el combate está en curso — impide cerrar la ventana */
+    private boolean combateEnCurso = false;
 
+    // ── Componentes ───────────────────────────────────────────────────────────
+    private final JLabel lblNombreL1a;
+    private final JLabel lblNombreL1b;
+    private final JLabel lblNombreL2a;
+    private final JLabel lblNombreL2b;
     private final JPanel      panelGanador;
     private final JLabel      lblGanador;
     private final JTextArea   areaLog;
@@ -58,20 +55,32 @@ public class VistaServidor extends JFrame {
 
     public VistaServidor() {
         super("Servidor - Combate de Sumo | Dohyo");
-        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(1280, 720);
         setLocationRelativeTo(null);
         setResizable(false);
 
-        // Dos JLabels por luchador en lugar de HTML (fix #3)
-        lblNombreL1a = crearLblLuchador("🥋  LUCHADOR 1", Font.BOLD,   14);
+        // Controla el cierre según el estado del combate (fix #5)
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                if (!combateEnCurso) {
+                    // Antes del combate: permite cerrar normalmente
+                    System.exit(0);
+                }
+                // Durante el combate: ignora el cierre silenciosamente
+            }
+        });
+
+        lblNombreL1a = crearLblLuchador("LUCHADOR 1", Font.BOLD,   14);
         lblNombreL1b = crearLblLuchador("(Esperando...)", Font.ITALIC, 12);
-        lblNombreL2a = crearLblLuchador("🥋  LUCHADOR 2", Font.BOLD,   14);
+        lblNombreL2a = crearLblLuchador("LUCHADOR 2", Font.BOLD,   14);
         lblNombreL2b = crearLblLuchador("(Esperando...)", Font.ITALIC, 12);
 
         lblGanador   = new JLabel(" ", SwingConstants.CENTER);
         lblGanador.setFont(new Font("Serif", Font.BOLD, 17));
         lblGanador.setForeground(C_TEXTO);
+
         panelGanador = construirPanelGanador();
         areaLog      = crearAreaLog();
         lblEstado    = crearLblEstado();
@@ -90,31 +99,40 @@ public class VistaServidor extends JFrame {
         raiz.add(construirCentro(),  BorderLayout.CENTER);
     }
 
-    /** Header rojo — íconos pegados al título (fix #4) */
+    /**
+     * Header rojo — íconos pegados al título con BoxLayout (fix #2).
+     * Los tres elementos van en un panel BoxLayout horizontal
+     * envuelto en FlowLayout CENTER para que quede centrado.
+     */
     private JPanel construirHeader() {
-        JPanel p = new JPanel(new BorderLayout(0, 0));
+        JPanel p = new JPanel(new BorderLayout());
         p.setBackground(C_ROJO);
         p.setBorder(new EmptyBorder(10, 18, 10, 18));
 
-        JPanel pIzq = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        pIzq.setOpaque(false);
+        JPanel pContenido = new JPanel();
+        pContenido.setLayout(new BoxLayout(pContenido, BoxLayout.X_AXIS));
+        pContenido.setOpaque(false);
+
         JLabel lblIcono = new JLabel();
         lblIcono.setIcon(escalarIcono(REC + "Logo_Sumo.png", 58, 58));
-        pIzq.add(lblIcono);
+        pContenido.add(lblIcono);
+        pContenido.add(Box.createRigidArea(new Dimension(12, 0)));
 
-        JLabel lblTitulo = new JLabel("¡COMBATE DE SUMO!", SwingConstants.CENTER);
+        JLabel lblTitulo = new JLabel("¡COMBATE DE SUMO!");
         lblTitulo.setFont(new Font("Serif", Font.BOLD, 36));
         lblTitulo.setForeground(C_BLANCO);
+        pContenido.add(lblTitulo);
+        pContenido.add(Box.createRigidArea(new Dimension(12, 0)));
 
-        JPanel pDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        pDer.setOpaque(false);
         JLabel lblBandera = new JLabel();
         lblBandera.setIcon(escalarIcono(REC + "japones.png", 58, 58));
-        pDer.add(lblBandera);
+        pContenido.add(lblBandera);
 
-        p.add(pIzq,      BorderLayout.WEST);
-        p.add(lblTitulo, BorderLayout.CENTER);
-        p.add(pDer,      BorderLayout.EAST);
+        JPanel pCentrador = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        pCentrador.setOpaque(false);
+        pCentrador.add(pContenido);
+
+        p.add(pCentrador, BorderLayout.CENTER);
         return p;
     }
 
@@ -148,9 +166,7 @@ public class VistaServidor extends JFrame {
         return p;
     }
 
-    /**
-     * Panel de nombre de un luchador usando dos JLabels apilados (fix #3 — sin HTML).
-     */
+    /** Panel de nombre con dos JLabels apilados — sin HTML */
     private JPanel construirPanelNombre(JLabel lbl1, JLabel lbl2, Color fondo) {
         JPanel p = new JPanel(new GridLayout(2, 1, 0, 2));
         p.setBackground(fondo);
@@ -253,71 +269,84 @@ public class VistaServidor extends JFrame {
 
     public void actualizarEstado(String msg) { lblEstado.setText(msg); }
 
-    /** Actualiza nombre del luchador usando dos JLabels (fix #3) */
+    /** Actualiza el nombre y peso del luchador que llegó */
     public void mostrarLuchadorEnDohyo(String nombre, double peso, int indice) {
         String linea2 = nombre + "  (" + String.format("%.1f", peso) + " kg)";
         if (indice == 0) {
-            lblNombreL1a.setText("🥋  LUCHADOR 1");
+            lblNombreL1a.setText("LUCHADOR 1");
             lblNombreL1b.setText(linea2);
         } else {
-            lblNombreL2a.setText("🥋  LUCHADOR 2");
+            lblNombreL2a.setText("LUCHADOR 2");
             lblNombreL2b.setText(linea2);
         }
         panelCombate.repaint();
     }
 
+    /**
+     * Inicia el combate visualmente:
+     * - Bloquea el cierre de la ventana (fix #5)
+     * - Trae la ventana al frente (fix #6)
+     */
     public void mostrarInicioCombate(String n1, String n2) {
+        combateEnCurso = true;                    // impide cerrar durante el combate
         actualizarEstado("¡COMBATE INICIADO!  " + n1 + "  VS  " + n2);
+
+        // Traer al frente sobre la ventana del cliente (fix #6)
+        setState(Frame.NORMAL);
+        toFront();
+        requestFocus();
     }
 
     /**
-     * Muestra imagen del kimarite sobre el dohyo.
-     * Busca Data/Imagenes_tecnicas/[nombreKimarite].png (o .jpg / .jpeg).
+     * Muestra la imagen del kimarite sobre el dohyo.
+     * Busca Data/Imagenes_tecnicas/[nombre].png (o .jpg / .jpeg).
      */
     public void mostrarKimarite(String nombreLuchador, String nombreKimarite,
                                  boolean expulsado) {
         panelCombate.cargarKimarite(nombreKimarite, expulsado);
-        String res = expulsado ? " ¡EXPULSADO!" : " El oponente resiste";
-        actualizarEstado(nombreLuchador + " usa [" + nombreKimarite + "] —" + res);
+        String res = expulsado ? " EXPULSADO!" : " El oponente resiste";
+        actualizarEstado(nombreLuchador + " usa [" + nombreKimarite + "] - " + res);
     }
 
     /**
-     * Muestra el ganador y cierra el servidor (fix #2).
-     * Espera 4 segundos para que el usuario pueda leer el resultado.
+     * Muestra el ganador en el panel dorado.
+     * El cierre real del servidor lo hace ControladorServidor cuando recibe
+     * LISTO de ambos clientes — la vista nunca llama System.exit (fix #3).
      */
     public void mostrarGanador(String nombreGanador, int victorias) {
-        lblGanador.setText("🏆  GANADOR : " + nombreGanador
+        lblGanador.setText("GANADOR : " + nombreGanador
             + "  |  Numero de victorias : " + victorias);
         actualizarEstado("Combate finalizado. Ganador: " + nombreGanador);
+    }
 
-        // Cerrar el servidor 4 segundos después (fix #2)
-        Timer timer = new Timer(4000, e -> System.exit(0));
-        timer.setRepeats(false);
-        timer.start();
+    /**
+     * Cierra la ventana del servidor.
+     * Llamado por ControladorServidor cuando ambos clientes confirmaron
+     * con LISTO (fix #3 — el servidor se cierra en el momento correcto).
+     */
+    public void cerrar() {
+        dispose();
+        System.exit(0);
     }
 
     // ─── Inner class: PanelCombate ────────────────────────────────────────────
 
     /**
-     * Panel central que muestra el fondo del dohyo, los luchadores desde el
-     * inicio (fix #1) y la imagen del kimarite ejecutado superpuesta.
+     * Panel central que muestra el fondo del dohyo, los luchadores
+     * desde el inicio y la imagen del kimarite ejecutado superpuesta.
      */
     private class PanelCombate extends JPanel {
 
-        /** Imagen de fondo del dojo */
         private final Image imgFondo;
-        /** Luchador izquierdo — visible desde el inicio (fix #1) */
         private final Image imgL1;
-        /** Luchador derecho — visible desde el inicio (fix #1) */
         private final Image imgL2;
-        /** Imagen del kimarite activo */
-        private Image   imgKimarite    = null;
-        private String  nombreKimarite = "";
-        private Color   colorKimarite  = Color.WHITE;
+        private Image  imgKimarite    = null;
+        private String nombreKimarite = "";
+        private Color  colorKimarite  = Color.WHITE;
 
         public PanelCombate() {
             setOpaque(true);
-            imgFondo = cargarImagen(REC + "Dohyo.png", -1, -1);
+            imgFondo = cargarImagen(REC + "Dohyo.png",     -1, -1);
             imgL1    = cargarImagen(REC + "Luchador1.png", -1, -1);
             imgL2    = cargarImagen(REC + "Luchador2.png", -1, -1);
         }
@@ -359,78 +388,58 @@ public class VistaServidor extends JFrame {
                 g2.fillRect(0, 0, w, h);
             }
 
-            // Silueta negra semitransparente (fix #5)
+            // Silueta oscura
             g2.setColor(new Color(0, 0, 0, 50));
             g2.fillRect(0, 0, w, h);
 
-            // Luchadores visibles desde el inicio (fix #1)
-            // Luchador 1 (izquierda)
+            // Luchadores visibles desde el inicio
             pintarLuchador(g2, imgL1, w, h, false);
-            // Luchador 2 (derecha)
             pintarLuchador(g2, imgL2, w, h, true);
 
-            // Imagen del kimarite centrada sobre el dohyo (fix #7)
+            // Imagen del kimarite centrada sobre el ring
             if (imgKimarite != null)
                 pintarKimarite(g2, w, h);
 
             g2.dispose();
         }
 
-        /**
-         * Dibuja un luchador centrado verticalmente en su mitad del panel.
-         * Los luchadores aparecen desde el inicio del servidor (fix #1).
-         *
-         * @param derecho true = lado derecho, false = lado izquierdo
-         */
         private void pintarLuchador(Graphics2D g2, Image img,
                                      int w, int h, boolean derecho) {
             if (img == null) return;
-
-            int mitad   = w / 2;
-            int maxW    = (int)(mitad * 0.55);
-            int maxH    = (int)(h     * 0.68);
-            double esc  = Math.min(
+            int mitad  = w / 2;
+            int maxW   = (int)(mitad * 0.55);
+            int maxH   = (int)(h     * 0.68);
+            double esc = Math.min(
                 (double) maxW / img.getWidth(null),
                 (double) maxH / img.getHeight(null));
             int rw = (int)(img.getWidth(null)  * esc);
             int rh = (int)(img.getHeight(null) * esc);
-
-            // Centrar horizontalmente en su mitad, verticalmente a 15% del top
-            int cx  = derecho ? (mitad + mitad / 2) : (mitad / 2);
-            int lx  = cx - rw / 2;
-            int ly  = (int)(h * 0.15);
-
-            g2.drawImage(img, lx, ly, rw, rh, null);
+            int cx = derecho ? (mitad + mitad / 2) : (mitad / 2);
+            g2.drawImage(img, cx - rw / 2, (int)(h * 0.15), rw, rh, null);
         }
 
-        /** Dibuja la imagen del kimarite centrada sobre el ring */
         private void pintarKimarite(Graphics2D g2, int w, int h) {
-            int maxW   = (int)(w * 0.28);
-            int maxH   = (int)(h * 0.38);
-            int origW  = imgKimarite.getWidth(null);
-            int origH  = imgKimarite.getHeight(null);
+            int maxW  = (int)(w * 0.28);
+            int maxH  = (int)(h * 0.38);
+            int origW = imgKimarite.getWidth(null);
+            int origH = imgKimarite.getHeight(null);
             if (origW <= 0 || origH <= 0) return;
 
             double esc = Math.min((double) maxW / origW, (double) maxH / origH);
             int rw = (int)(origW * esc);
             int rh = (int)(origH * esc);
-            // Centro del panel, ligeramente arriba del centro vertical (fix #7)
             int kx = w / 2 - rw / 2;
             int ky = (int)(h * 0.32) - rh / 2;
 
-            // Fondo oscuro detrás de la imagen
             g2.setColor(new Color(0, 0, 0, 150));
             g2.fillRoundRect(kx - 12, ky - 10, rw + 24, rh + 30, 14, 14);
-
             g2.drawImage(imgKimarite, kx, ky, rw, rh, null);
 
-            // Nombre del kimarite debajo
             g2.setFont(new Font("Serif", Font.BOLD, 13));
             g2.setColor(colorKimarite);
             FontMetrics fm = g2.getFontMetrics();
             g2.drawString(nombreKimarite,
-                w / 2 - fm.stringWidth(nombreKimarite) / 2,
-                ky + rh + 18);
+                w / 2 - fm.stringWidth(nombreKimarite) / 2, ky + rh + 18);
         }
     }
 }

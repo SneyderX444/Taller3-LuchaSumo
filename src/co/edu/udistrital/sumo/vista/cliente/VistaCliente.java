@@ -5,19 +5,20 @@ import javax.swing.border.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Vista del cliente — Combate de Sumo.
+ * Vista del cliente — Combate de Sumo v5.
  *
- * CORRECCIONES v4:
- * - Sin HTML en ningún componente — solo Java puro
- * - Campos de texto más altos y anchos
- * - Silueta/sombra oscura sobre el fondo floral
- * - Header: íconos pegados al título
- * - Imagen del luchador alterna entre Luchador1.png y Luchador2.png
- *   según cuántas instancias del cliente se hayan lanzado (contador estático)
+ * CORRECCIONES:
+ * - Íconos pegados al título usando BoxLayout (fix #2)
+ * - Imagen del luchador alterna entre procesos usando archivo bandera (fix #1)
+ *
+ * La alternancia funciona así:
+ *   Si "Data/luchador_flag.tmp" NO existe → primer cliente → Luchador1.png, crea el archivo
+ *   Si "Data/luchador_flag.tmp" SÍ existe → segundo cliente → Luchador2.png, borra el archivo
  *
  * Recursos en Data/Recursos/:
  *   Fondo_Japones.png, Luchador1.png, Luchador2.png, Logo_Sumo.png,
@@ -27,16 +28,14 @@ import java.util.List;
  * PROHIBIDO: Rikishi/Kimarite, lógica de negocio, sockets, SQL, HTML.
  *
  * @author Grupo Taller 3
- * @version 4.0
+ * @version 5.0
  */
 public class VistaCliente extends JFrame {
 
     // ── Rutas ─────────────────────────────────────────────────────────────────
-    private static final String REC = "Data/Recursos/";
-
-    // ── Contador estático para alternar imagen de luchador ───────────────────
-    /** Lleva la cuenta de instancias creadas para asignar imagen diferente */
-    private static int instancias = 0;
+    private static final String REC       = "Data/Recursos/";
+    /** Archivo bandera para alternar imagen entre procesos JVM */
+    private static final String BANDERA   = "Data/luchador_flag.tmp";
 
     // ── Colores ───────────────────────────────────────────────────────────────
     private static final Color C_ROJO_PANEL = new Color(237, 85, 90);
@@ -56,9 +55,8 @@ public class VistaCliente extends JFrame {
     private final JLabel               lblEstado;
     private final JFileChooser         fileChooser;
 
-    /** Imagen de fondo floral */
-    private final Image imgFondo;
-    /** Imagen del luchador — alterna entre instancias */
+    private final Image  imgFondo;
+    /** Ruta del luchador determinada por la bandera de proceso */
     private final String rutaLuchador;
 
     public VistaCliente() {
@@ -68,11 +66,8 @@ public class VistaCliente extends JFrame {
         setLocationRelativeTo(null);
         setResizable(false);
 
-        // Alternar imagen: instancia par → Luchador1, impar → Luchador2
-        instancias++;
-        rutaLuchador = (instancias % 2 == 1)
-            ? REC + "Luchador1.png"
-            : REC + "Luchador2.png";
+        // ── Alternancia de imagen entre procesos JVM (fix #1) ─────────────
+        rutaLuchador = resolverRutaLuchador();
 
         imgFondo = cargarImagen(REC + "Fondo_Japones.png", -1, -1);
 
@@ -92,6 +87,25 @@ public class VistaCliente extends JFrame {
         construirUI();
     }
 
+    /**
+     * Determina qué imagen de luchador usar según el archivo bandera.
+     * Si el archivo NO existe → primer cliente → usa Luchador1.png y CREA el archivo.
+     * Si el archivo SÍ existe → segundo cliente → usa Luchador2.png y BORRA el archivo.
+     * Esto funciona incluso entre procesos JVM separados.
+     */
+    private String resolverRutaLuchador() {
+        File bandera = new File(BANDERA);
+        if (!bandera.exists()) {
+            // Primer cliente
+            try { bandera.createNewFile(); } catch (IOException ignored) {}
+            return REC + "Luchador1.png";
+        } else {
+            // Segundo cliente
+            bandera.delete();
+            return REC + "Luchador2.png";
+        }
+    }
+
     // ─── Layout ───────────────────────────────────────────────────────────────
 
     private void construirUI() {
@@ -100,14 +114,13 @@ public class VistaCliente extends JFrame {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
-                // Imagen de fondo floral
                 if (imgFondo != null)
                     g2.drawImage(imgFondo, 0, 0, getWidth(), getHeight(), this);
                 else {
                     g2.setColor(new Color(245, 210, 200));
                     g2.fillRect(0, 0, getWidth(), getHeight());
                 }
-                // Silueta negra semitransparente sobre el fondo (fix #5)
+                // Silueta oscura sobre el fondo
                 g2.setColor(new Color(0, 0, 0, 55));
                 g2.fillRect(0, 0, getWidth(), getHeight());
                 g2.dispose();
@@ -116,40 +129,54 @@ public class VistaCliente extends JFrame {
         raiz.setOpaque(true);
         setContentPane(raiz);
 
-        raiz.add(construirHeader(),  BorderLayout.NORTH);
-        raiz.add(construirCentro(),  BorderLayout.CENTER);
-        raiz.add(construirEstado(),  BorderLayout.SOUTH);
+        raiz.add(construirHeader(), BorderLayout.NORTH);
+        raiz.add(construirCentro(), BorderLayout.CENTER);
+        raiz.add(construirEstado(), BorderLayout.SOUTH);
     }
 
-    /** Header rojo — íconos pegados al título (fix #4) */
+    /**
+     * Header rojo — íconos pegados al título con BoxLayout (fix #2).
+     * En lugar de poner ícono en WEST y EAST (que los alejan),
+     * los tres elementos van juntos en un panel con BoxLayout horizontal
+     * centrado dentro del header.
+     */
     private JPanel construirHeader() {
-        JPanel p = new JPanel(new BorderLayout(0, 0));
+        JPanel p = new JPanel(new BorderLayout());
         p.setBackground(C_ROJO_PANEL);
-        // Padding reducido para que los íconos queden cerca del texto
         p.setBorder(new EmptyBorder(10, 18, 10, 18));
 
-        // Panel izquierdo: ícono + hueco mínimo
-        JPanel pIzq = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        pIzq.setOpaque(false);
+        // Panel central con BoxLayout: [icono] [espacio] [titulo] [espacio] [bandera]
+        JPanel pContenido = new JPanel();
+        pContenido.setLayout(new BoxLayout(pContenido, BoxLayout.X_AXIS));
+        pContenido.setOpaque(false);
+
+        // Ícono sumo
         JLabel lblIcono = new JLabel();
         lblIcono.setIcon(escalarIcono(REC + "Logo_Sumo.png", 58, 58));
-        pIzq.add(lblIcono);
 
-        // Título centrado
-        JLabel lblTitulo = new JLabel("¡COMBATE DE SUMO!", SwingConstants.CENTER);
+        // Separador mínimo entre ícono y texto
+        pContenido.add(lblIcono);
+        pContenido.add(Box.createRigidArea(new Dimension(12, 0)));
+
+        // Título
+        JLabel lblTitulo = new JLabel("¡COMBATE DE SUMO!");
         lblTitulo.setFont(new Font("Serif", Font.BOLD, 36));
         lblTitulo.setForeground(C_BLANCO);
+        pContenido.add(lblTitulo);
 
-        // Panel derecho: bandera + hueco mínimo
-        JPanel pDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        pDer.setOpaque(false);
+        pContenido.add(Box.createRigidArea(new Dimension(12, 0)));
+
+        // Bandera
         JLabel lblBandera = new JLabel();
         lblBandera.setIcon(escalarIcono(REC + "japones.png", 58, 58));
-        pDer.add(lblBandera);
+        pContenido.add(lblBandera);
 
-        p.add(pIzq,      BorderLayout.WEST);
-        p.add(lblTitulo, BorderLayout.CENTER);
-        p.add(pDer,      BorderLayout.EAST);
+        // Envolver en un panel centrador
+        JPanel pCentrador = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        pCentrador.setOpaque(false);
+        pCentrador.add(pContenido);
+
+        p.add(pCentrador, BorderLayout.CENTER);
         return p;
     }
 
@@ -163,20 +190,18 @@ public class VistaCliente extends JFrame {
         return p;
     }
 
-    /** Panel rojo izquierdo con los campos y la lista */
+    /** Panel rojo izquierdo */
     private JPanel construirFormulario() {
         JPanel p = new JPanel(new BorderLayout(0, 8));
         p.setBackground(C_ROJO_PANEL);
         p.setBorder(new EmptyBorder(18, 22, 16, 22));
 
-        // ── Campos nombre y peso (fix #6: más altos) ────────────────────────
         JPanel pCampos = new JPanel(new GridBagLayout());
         pCampos.setOpaque(false);
         GridBagConstraints g = new GridBagConstraints();
         g.fill = GridBagConstraints.HORIZONTAL;
         g.insets = new Insets(8, 0, 8, 8);
 
-        // Nombre
         g.gridx = 0; g.gridy = 0; g.weightx = 0;
         pCampos.add(lblCampo("Nombre del Rikishi:"), g);
         g.gridx = 1; g.weightx = 0;
@@ -184,7 +209,6 @@ public class VistaCliente extends JFrame {
         g.gridx = 2; g.weightx = 1;
         pCampos.add(txtNombre, g);
 
-        // Peso
         g.gridx = 0; g.gridy = 1; g.weightx = 0;
         pCampos.add(lblCampo("Peso(kg):"), g);
         g.gridx = 1; g.weightx = 0;
@@ -192,7 +216,6 @@ public class VistaCliente extends JFrame {
         g.gridx = 2; g.weightx = 1;
         pCampos.add(txtPeso, g);
 
-        // Fila botón cargar
         g.gridx = 0; g.gridy = 2; g.gridwidth = 1; g.insets = new Insets(14, 0, 2, 4);
         pCampos.add(new JLabel(escalarIcono(REC + "gato-chino-de-la-suerte.png", 42, 42)), g);
         g.gridx = 1; g.gridwidth = 1; g.weightx = 1; g.insets = new Insets(14, 0, 2, 4);
@@ -202,10 +225,8 @@ public class VistaCliente extends JFrame {
 
         p.add(pCampos, BorderLayout.NORTH);
 
-        // ── Lista de técnicas ──────────────────────────────────────────────
         JPanel pLista = new JPanel(new BorderLayout(0, 5));
         pLista.setOpaque(false);
-
         JLabel lblTec = new JLabel("Tecnicas disponibles");
         lblTec.setFont(new Font("Serif", Font.BOLD, 16));
         lblTec.setForeground(C_BLANCO);
@@ -220,10 +241,8 @@ public class VistaCliente extends JFrame {
         scroll.setBackground(C_LISTA);
         scroll.getViewport().setBackground(C_LISTA);
         pLista.add(scroll, BorderLayout.CENTER);
-
         p.add(pLista, BorderLayout.CENTER);
 
-        // ── Botón conectar ─────────────────────────────────────────────────
         JPanel pBot = new JPanel(new BorderLayout());
         pBot.setOpaque(false);
         pBot.setBorder(new EmptyBorder(10, 0, 0, 0));
@@ -233,10 +252,7 @@ public class VistaCliente extends JFrame {
         return p;
     }
 
-    /**
-     * Panel derecho — dibuja fondo floral + círculo rojo + luchador.
-     * Imagen del luchador baja un poco para quedar centrada en el círculo (fix #7).
-     */
+    /** Panel derecho con círculo rojo y luchador */
     private JPanel construirPanelLuchador() {
         return new JPanel() {
             final Image imgLuchador = cargarImagen(rutaLuchador, -1, -1);
@@ -250,29 +266,25 @@ public class VistaCliente extends JFrame {
                                     RenderingHints.VALUE_ANTIALIAS_ON);
                 int w = getWidth(), h = getHeight();
 
-                // Silueta negra (fix #5)
                 g2.setColor(new Color(0, 0, 0, 40));
                 g2.fillRect(0, 0, w, h);
 
-                // Círculo rojo centrado un poco más abajo
                 int r  = (int)(Math.min(w, h) * 0.80);
                 int ox = w / 2 - r / 2;
-                int oy = h / 2 - r / 2 + 20;          // +20 baja el círculo
+                int oy = h / 2 - r / 2 + 20;
                 g2.setColor(new Color(200, 40, 40, 210));
                 g2.fillOval(ox, oy, r, r);
 
-                // Luchador centrado sobre el círculo (fix #7)
                 if (imgLuchador != null) {
                     int maxW = (int)(w * 0.82);
                     int maxH = (int)(h * 0.88);
                     double esc = Math.min(
                         (double) maxW / imgLuchador.getWidth(null),
                         (double) maxH / imgLuchador.getHeight(null));
-                    int rw = (int)(imgLuchador.getWidth(null)  * esc);
+                    int rw = (int)(imgLuchador.getWidth(null) * esc);
                     int rh = (int)(imgLuchador.getHeight(null) * esc);
-                    // Centro del luchador alineado al centro del círculo
                     int lx = w / 2 - rw / 2;
-                    int ly = (oy + r / 2) - rh / 2 + 10; // centrado en el círculo
+                    int ly = (oy + r / 2) - rh / 2 + 10;
                     g2.drawImage(imgLuchador, lx, ly, rw, rh, null);
                 }
                 g2.dispose();
@@ -291,14 +303,13 @@ public class VistaCliente extends JFrame {
 
     // ─── Fábricas ─────────────────────────────────────────────────────────────
 
-    /** Campo de texto más alto (fix #6) */
     private JTextField crearCampo() {
         JTextField t = new JTextField();
         t.setBackground(C_CAMPO);
         t.setForeground(C_TEXTO);
         t.setFont(new Font("Serif", Font.PLAIN, 15));
         t.setCaretColor(C_TEXTO);
-        t.setPreferredSize(new Dimension(220, 38));   // altura explícita
+        t.setPreferredSize(new Dimension(220, 38));
         t.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(200, 100, 100), 1),
             new EmptyBorder(8, 10, 8, 10)));
@@ -398,7 +409,7 @@ public class VistaCliente extends JFrame {
     }
 
     public void mostrarResultadoCombate(boolean gano) {
-        String titulo = gano ? "¡GANASTE!"  : "Perdiste";
+        String titulo = gano ? "GANASTE!"  : "Perdiste";
         String msg    = gano
             ? "Felicitaciones! Tu rikishi gano el combate."
             : "Tu rikishi fue expulsado del dohyo.";
