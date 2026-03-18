@@ -1,8 +1,8 @@
 package co.edu.udistrital.sumo.controlador;
 
-import co.edu.udistrital.sumo.modelo.Dohyo;
 import co.edu.udistrital.sumo.modelo.Kimarite;
 import co.edu.udistrital.sumo.modelo.Rikishi;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -11,140 +11,134 @@ import java.net.Socket;
 
 /**
  * Hilo del servidor que atiende a un luchador de sumo conectado vía socket.
- * <p>
- * Cada vez que un cliente se conecta al servidor, se crea una instancia de
- * {@code HiloLuchador} para atenderlo en un hilo independiente. Esto permite
- * que el servidor continúe aceptando la segunda conexión mientras el primero
- * ya está siendo atendido.
- * </p>
  *
- * <p>
- * <b>Protocolo de comunicación:</b>
- * <ul>
- *   <li>Cliente → Servidor: {@code "nombre|peso|k1,k2,k3,..."}
- *       donde k1,k2,k3 son los nombres de los kimarites seleccionados.</li>
- *   <li>Servidor → Cliente: {@code "GANASTE"} o {@code "PERDISTE"}.</li>
- *   <li>Cliente → Servidor (confirmación): {@code "LISTO"}.</li>
- * </ul>
- * </p>
+ * Propósito: Cada vez que un cliente se conecta, el servidor crea un
+ * {@code HiloLuchador} para atenderlo independientemente. Esto permite
+ * aceptar la segunda conexión mientras el primero ya está siendo atendido.
+ * Protocolo de comunicación:
+ * - Cliente a Servidor: "nombre|peso|k1,k2,k3,..."
+ * - Servidor a Cliente: "GANASTE" o "PERDISTE"
+ * - Cliente a Servidor (confirmación de cierre): "LISTO"
+ * El combate se sincroniza a través de {@link ControladorDohyo}, cuya
+ * instancia es compartida entre AMBOS hilos luchadores.
+ * Se comunica con: {@link ControladorDohyo} (lógica y sincronización del combate).
+ * Principio SOLID:
+ * S — única responsabilidad: atender la comunicación socket de un luchador
+ * y participar en el combate usando el controlador del dohyō.
  *
- * <p>
- * El combate se sincroniza a través del objeto {@link Dohyo}, el cual actúa
- * como monitor (métodos {@code synchronized}, {@code wait}, {@code notifyAll}).
- * </p>
+ * PROHIBIDO en esta clase: lógica de combate, Dohyo directo, componentes Swing.
  *
  * @author Grupo Taller 3
- * @version 1.0
- * @see Dohyo
+ * @version 2.0
+ * @see ControladorDohyo
  * @see ControladorServidor
  */
 public class HiloLuchador extends Thread {
 
-    /** Socket de comunicación con el cliente. */
+    //Pausa mínima entre turnos para que el combate sea visible en la interfaz
+    private static final int PAUSA_MIN_MS = 300;
+
+    //Pausa máxima entre turnos — según enunciado: máximo 500ms de espera
+    private static final int PAUSA_MAX_MS = 500;
+
+    //Socket de comunicación con el cliente
     private final Socket socketCliente;
 
-    /** El dohyō compartido entre ambos hilos de luchadores. */
-    private final Dohyo dohyo;
+    //Controlador del combate: sincronización y lógica compartida entre ambos hilos
+    private final ControladorDohyo controladorDohyo;
 
-    /** Índice de este luchador en el dohyō (0 o 1). */
+    //Índice de este luchador en el dohyō (0 o 1)
     private final int indice;
 
-    /** Luchador de sumo (rikishi) creado a partir de los datos recibidos por socket. */
+    //Luchador construido a partir de los datos recibidos por socket
     private Rikishi rikishi;
 
     /**
-     * Construye un nuevo HiloLuchador para atender al cliente conectado.
+     * Construye un HiloLuchador para atender al cliente conectado.
      *
-     * @param socketCliente socket activo de la conexión con el cliente
-     * @param dohyo         instancia compartida del dohyō donde se realizará el combate
-     * @param indice        posición del luchador (0 = primero en llegar, 1 = segundo)
+     * @param socketCliente    socket activo de la conexión con el cliente
+     * @param controladorDohyo instancia COMPARTIDA del controlador del combate
+     * @param indice           posición del luchador (0 = primero, 1 = segundo)
      */
-    public HiloLuchador(Socket socketCliente, Dohyo dohyo, int indice) {
+    public HiloLuchador(Socket socketCliente,
+                         ControladorDohyo controladorDohyo,
+                         int indice) {
         super("HiloLuchador-" + indice);
-        this.socketCliente = socketCliente;
-        this.dohyo = dohyo;
-        this.indice = indice;
+        this.socketCliente    = socketCliente;
+        this.controladorDohyo = controladorDohyo;
+        this.indice           = indice;
     }
 
     /**
      * Lógica principal del hilo:
-     * <ol>
-     *   <li>Lee los datos del luchador enviados por el cliente.</li>
-     *   <li>Construye el objeto {@link Rikishi}.</li>
-     *   <li>Sube al luchador al dohyō.</li>
-     *   <li>Espera a que ambos luchadores estén listos.</li>
-     *   <li>Ejecuta el bucle de combate alternando turnos en el dohyō.</li>
-     *   <li>Envía el resultado (GANASTE / PERDISTE) al cliente.</li>
-     *   <li>Espera confirmación "LISTO" del cliente antes de cerrar.</li>
-     * </ol>
+     * 1. Lee los datos del luchador enviados por el cliente.
+     * 2. Construye el objeto {@link Rikishi}.
+     * 3. Sube al luchador al dohyō vía ControladorDohyo.
+     * 4. Espera a que ambos estén listos.
+     * 5. Ejecuta el bucle de combate con pausa aleatoria entre PAUSA_MIN y PAUSA_MAX.
+     * 6. Envía el resultado al cliente.
+     * 7. Espera confirmación "LISTO" antes de cerrar.
      */
     @Override
     public void run() {
         try (
             BufferedReader entrada = new BufferedReader(
                 new InputStreamReader(socketCliente.getInputStream()));
-            PrintWriter salida = new PrintWriter(socketCliente.getOutputStream(), true)
+            PrintWriter salida = new PrintWriter(
+                socketCliente.getOutputStream(), true)
         ) {
-            // ── Paso 1: Recibir datos del luchador ──────────────────────────
+            //Paso 1: Recibir datos del luchador
             String lineaDatos = entrada.readLine();
-            if (lineaDatos == null || lineaDatos.isEmpty()) {
-                return;
-            }
+            if (lineaDatos == null || lineaDatos.isEmpty()) return;
 
+            //Paso 2: Construir el Rikishi
             rikishi = parsearRikishi(lineaDatos);
 
-            // ── Paso 2: Subir al dohyō ──────────────────────────────────────
-            dohyo.subirLuchador(rikishi, indice);
+            //Paso 3: Subir al dohyō
+            controladorDohyo.subirLuchador(rikishi, indice);
 
-            // ── Paso 3: Esperar al oponente ─────────────────────────────────
-            dohyo.esperarAmbosLuchadores();
+            //Paso 4: Esperar al oponente
+            controladorDohyo.esperarAmbosLuchadores();
 
-            // ── Paso 4: Bucle de combate ────────────────────────────────────
-            while (!dohyo.isCombateTerminado()) {
-                /*
-                 * Pausa aleatoria de 0 a MAX_ESPERA_MS ms antes de intentar el turno.
-                 * Simula el tiempo que tarda el luchador en preparar su técnica.
-                 * Esta espera es independiente del timeout interno del dohyō.
-                 */
-                int pausa = (int) (Math.random() * Dohyo.MAX_ESPERA_MS);
+            //Paso 5: Bucle de combate
+            while (!controladorDohyo.isCombateTerminado()) {
+                //Pausa aleatoria entre PAUSA_MIN_MS y PAUSA_MAX_MS
+                int pausa = PAUSA_MIN_MS
+                    + (int)(Math.random() * (PAUSA_MAX_MS - PAUSA_MIN_MS));
                 Thread.sleep(pausa);
 
-                if (!dohyo.isCombateTerminado()) {
-                    dohyo.ejecutarTurno(indice);
+                if (!controladorDohyo.isCombateTerminado()) {
+                    controladorDohyo.ejecutarTurno(indice);
                 }
             }
 
-            // ── Paso 5: Enviar resultado ────────────────────────────────────
-            Rikishi ganador = dohyo.getGanador();
-            if (ganador != null && ganador.getNombre().equals(rikishi.getNombre())) {
+            //Paso 6: Enviar resultado al cliente
+            Rikishi ganador = controladorDohyo.getGanador();
+            if (ganador != null
+                    && ganador.getNombre().equals(rikishi.getNombre())) {
                 salida.println("GANASTE");
             } else {
                 salida.println("PERDISTE");
             }
 
-            // ── Paso 6: Esperar confirmación del cliente ────────────────────
-            String confirmacion = entrada.readLine();
-            // "LISTO" recibido: el cliente terminó su ejecución
+            //Paso 7: Esperar confirmación del cliente antes de cerrar
+            entrada.readLine(); // "LISTO"
 
         } catch (InterruptedException e) {
-            // El hilo fue interrumpido externamente: restaurar el flag de interrupción
             Thread.currentThread().interrupt();
         } catch (IOException e) {
-            // Error de red: el socket se cerró o hubo un problema de comunicación
-            // No se propaga, el finally cerrará el socket limpiamente
+            //Error de red: el finally cierra el socket limpiamente
         } finally {
             cerrarSocket();
         }
     }
 
     /**
-     * Parsea la cadena de datos recibida del cliente y construye un {@link Rikishi}.
-     * <p>
-     * Formato esperado: {@code "nombre|peso|k1,k2,k3,..."}
-     * </p>
+     * Parsea la cadena recibida del cliente y construye un {@link Rikishi}.
+     * Formato esperado: "nombre|peso|k1,k2,k3,..."
      *
-     * @param linea cadena de texto enviada por el cliente
-     * @return objeto Rikishi construido con los datos recibidos
+     * @param linea cadena enviada por el cliente
+     * @return Rikishi construido con los datos recibidos
      */
     private Rikishi parsearRikishi(String linea) {
         String[] partes = linea.split("\\|");
@@ -153,42 +147,31 @@ public class HiloLuchador extends Thread {
         if (partes.length > 1) {
             try {
                 peso = Double.parseDouble(partes[1].trim());
-            } catch (NumberFormatException ignored) { }
+            } catch (NumberFormatException ignored) {}
         }
 
         Rikishi nuevo = new Rikishi(nombre, peso);
 
+        //Agregar kimarites directamente a la lista (sin lógica en Rikishi)
         if (partes.length > 2 && !partes[2].trim().isEmpty()) {
-            String[] nombresK = partes[2].trim().split(",");
-            for (String nombreK : nombresK) {
+            for (String nombreK : partes[2].trim().split(",")) {
                 if (!nombreK.trim().isEmpty()) {
-                    nuevo.agregarKimarite(new Kimarite(nombreK.trim()));
+                    nuevo.getKimarites().add(new Kimarite(nombreK.trim()));
                 }
             }
         }
-
         return nuevo;
     }
 
-    /**
-     * Cierra el socket del cliente de forma segura.
-     */
+    //Cierra el socket del cliente de forma segura
     private void cerrarSocket() {
         try {
             if (socketCliente != null && !socketCliente.isClosed()) {
                 socketCliente.close();
             }
-        } catch (IOException e) {
-            // Ignorado en cierre
-        }
+        } catch (IOException ignored) {}
     }
 
-    /**
-     * Retorna el luchador (rikishi) atendido por este hilo.
-     *
-     * @return el objeto Rikishi, o {@code null} si aún no se han recibido los datos
-     */
-    public Rikishi getRikishi() {
-        return rikishi;
-    }
+    //Retorna el luchador atendido por este hilo
+    public Rikishi getRikishi() { return rikishi; }
 }

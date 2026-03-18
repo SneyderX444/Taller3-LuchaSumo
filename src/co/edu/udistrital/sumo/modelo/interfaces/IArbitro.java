@@ -3,37 +3,40 @@ package co.edu.udistrital.sumo.modelo.interfaces;
 import co.edu.udistrital.sumo.modelo.Rikishi;
 
 /**
- * Contrato que define el comportamiento del árbitro y del dohyō (ring de sumo).
- * <p>
- * Esta interfaz aplica el principio de Inversión de Dependencias (DIP) de SOLID,
- * permitiendo que los controladores dependan de esta abstracción en lugar de
- * depender de la implementación concreta {@link co.edu.udistrital.sumo.modelo.Dohyo}.
- * </p>
+ * Contrato que define el comportamiento del árbitro del combate de sumo.
+ *
+ * Propósito: Definir las operaciones de coordinación del combate que
+ * {@link co.edu.udistrital.sumo.controlador.ControladorDohyo} debe implementar.
+ * Permite que {@link co.edu.udistrital.sumo.controlador.HiloLuchador} dependa
+ * de esta abstracción y no de la implementación concreta.
+ * Principio SOLID:
+ * D — las capas superiores dependen de esta abstracción, no del ControladorDohyo concreto.
+ * I — interfaz específica para las operaciones de arbitraje del combate.
  *
  * @author Grupo Taller 3
- * @version 1.0
+ * @version 2.0
+ * @see co.edu.udistrital.sumo.controlador.ControladorDohyo
  */
 public interface IArbitro {
 
     /**
-     * Sube un luchador al dohyō en el índice especificado.
+     * Registra un luchador en el dohyō en la posición indicada.
      *
-     * @param rikishi luchador que ingresa al ring
-     * @param indice  posición (0 o 1) donde se registra el luchador
+     * @param rikishi luchador que sube al ring
+     * @param indice  posición en el dohyō (0 o 1)
      */
     void subirLuchador(Rikishi rikishi, int indice);
 
     /**
-     * Bloquea el hilo actual hasta que ambos luchadores hayan ingresado al dohyō.
+     * Bloquea el hilo actual hasta que ambos luchadores estén en el dohyō.
      *
      * @throws InterruptedException si el hilo es interrumpido durante la espera
      */
     void esperarAmbosLuchadores() throws InterruptedException;
 
     /**
-     * Ejecuta el turno de combate del luchador en el índice dado.
-     * Si no es el turno del luchador, el hilo espera hasta un máximo de
-     * {@link sumo.modelo.Dohyo#MAX_ESPERA_MS} milisegundos.
+     * Ejecuta el turno del luchador indicado.
+     * Si no es su turno, el hilo espera hasta un máximo de 500ms.
      *
      * @param indiceLuchador índice (0 o 1) del luchador que ejecuta el turno
      * @throws InterruptedException si el hilo es interrumpido durante la espera
@@ -50,7 +53,7 @@ public interface IArbitro {
     /**
      * Retorna el luchador ganador del combate.
      *
-     * @return el {@link Rikishi} ganador, o {@code null} si el combate no ha terminado
+     * @return el {@link Rikishi} ganador, o {@code null} si aún no terminó
      */
     Rikishi getGanador();
 }

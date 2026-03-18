@@ -12,13 +12,17 @@ import java.util.Properties;
  * Propósito: Abrir y parsear el archivo {@code .properties} recibido como
  * parámetro, retornando únicamente Strings crudos para que el controlador
  * construya los objetos {@link Kimarite}.
- * Reside en el modelo porque es una conexión a un archivo, igual que
- * {@code ConexionBD} gestiona la conexión a la base de datos.
- * Se comunica con: {@link co.edu.udistrital.sumo.controlador.ControladorCliente}
- * (consumidor de los datos crudos).
+ * Reside en el modelo porque es una conexión a un archivo.
+ * Se comunica con: {@link co.edu.udistrital.sumo.controlador.ControladorCliente}.
  * Principio SOLID:
  * S — única responsabilidad: leer y parsear el archivo de propiedades.
  * O — no crea objetos del modelo, eso es responsabilidad del controlador.
+ *
+ * Formato esperado del archivo:
+ * kimarite.count=30
+ * kimarite1=Yorikiri
+ * kimarite2=Hatakikomi
+ * ...
  *
  * PROHIBIDO en esta clase: JFileChooser, objetos Kimarite, lógica de negocio,
  * imports del paquete controlador o vista, rutas quemadas.
@@ -28,26 +32,20 @@ import java.util.Properties;
  */
 public class CargadorPropiedades {
 
-    //Clave del archivo que indica el número total de kimarites
+    //Clave que indica el número total de kimarites en el archivo
     private static final String CLAVE_CONTEO = "kimarite.count";
 
-    //Prefijo de clave para el nombre de cada kimarite
-    private static final String PREFIJO_NOMBRE = "kimarite.%d.nombre";
+    //Prefijo de clave para cada kimarite: kimarite1, kimarite2, ...
+    private static final String PREFIJO = "kimarite%d";
 
     /**
      * Carga y retorna la lista de nombres de kimarites desde el archivo
-     * en la ruta indicada. Retorna solo Strings — el controlador es quien
-     * construye los objetos {@link Kimarite} a partir de estos datos.
-     *
-     * Formato esperado del archivo:
-     * kimarite.count=15
-     * kimarite.1.nombre=Yorikiri
-     * kimarite.2.nombre=Hatakikomi
-     * ...
+     * en la ruta indicada. Retorna solo Strings crudos — el controlador
+     * es quien construye los objetos {@link Kimarite} a partir de estos datos.
      *
      * @param rutaArchivo ruta absoluta del archivo .properties
      *                    (provista por el controlador vía JFileChooser en la Vista)
-     * @return lista de nombres crudos, vacía si el archivo es inválido o hay error
+     * @return lista de nombres crudos, vacía si hay error o archivo inválido
      * @throws IOException si no se puede leer el archivo
      */
     public List<String> cargarNombres(String rutaArchivo) throws IOException {
@@ -66,7 +64,8 @@ public class CargadorPropiedades {
         }
 
         for (int i = 1; i <= count; i++) {
-            String nombre = props.getProperty(String.format(PREFIJO_NOMBRE, i));
+            //Lee claves en formato: kimarite1, kimarite2, kimarite3...
+            String nombre = props.getProperty(String.format(PREFIJO, i));
             if (nombre != null && !nombre.trim().isEmpty()) {
                 nombres.add(nombre.trim());
             }

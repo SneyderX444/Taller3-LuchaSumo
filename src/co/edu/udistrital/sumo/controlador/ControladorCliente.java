@@ -1,61 +1,54 @@
 package co.edu.udistrital.sumo.controlador;
 
 import co.edu.udistrital.sumo.modelo.CargadorPropiedades;
-import co.edu.udistrital.sumo.controlador.acciones.AccionCargarKimarites;
-import co.edu.udistrital.sumo.controlador.acciones.AccionConectar;
-import sumo.controlador.util.CargadorPropiedades;
+import co.edu.udistrital.sumo.modelo.ConexionCliente;
 import co.edu.udistrital.sumo.vista.cliente.VistaCliente;
-import java.io.BufferedReader;
+
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
 import java.util.List;
 
 /**
  * Controlador del lado del cliente en la arquitectura MVC del Combate de Sumo.
- * <p>
- * Gestiona la interacción entre la {@link VistaCliente} y la lógica de conexión
- * al servidor vía sockets. Sus responsabilidades son:
- * <ul>
- *   <li>Cargar el listado de kimarites desde el archivo de propiedades.</li>
- *   <li>Validar los datos ingresados por el usuario.</li>
- *   <li>Establecer la conexión con el servidor y enviar los datos del luchador.</li>
- *   <li>Esperar la respuesta del servidor (GANASTE / PERDISTE) en un hilo aparte.</li>
- *   <li>Notificar a la vista el resultado y cerrar la conexión limpiamente.</li>
- * </ul>
- * </p>
  *
- * <p>
- * Las acciones de usuario están desacopladas mediante las clases
- * {@link AccionConectar} y {@link AccionCargarKimarites}.
- * </p>
+ * Propósito: Mediar entre la {@link VistaCliente} y la lógica de conexión
+ * al servidor vía {@link ConexionCliente}. Sus responsabilidades son:
+ * - Obtener la ruta del properties desde la Vista (que gestiona el JFileChooser).
+ * - Cargar los kimarites usando {@link CargadorPropiedades}.
+ * - Validar los datos ingresados por el usuario.
+ * - Conectar al servidor vía {@link ConexionCliente} y enviar los datos.
+ * - Esperar la respuesta del combate y notificar el resultado a la Vista.
+ * Las acciones de botones están desacopladas en {@link AccionCargarKimarites}
+ * y {@link AccionConectar}.
+ * Se comunica con: {@link VistaCliente} (vista), {@link CargadorPropiedades}
+ * (modelo - conexión properties), {@link ConexionCliente} (modelo - socket).
+ * Principio SOLID:
+ * S — única responsabilidad: coordinar el flujo del cliente.
+ *
+ * PROHIBIDO en esta clase: JFileChooser, ServerSocket, componentes Swing directos.
  *
  * @author Grupo Taller 3
- * @version 1.0
+ * @version 2.0
  * @see VistaCliente
- * @see HiloLuchador
+ * @see ConexionCliente
+ * @see CargadorPropiedades
  */
 public class ControladorCliente {
 
-    /** Dirección IP del servidor de sumo. */
+    //Dirección IP del servidor de sumo
     private static final String HOST_SERVIDOR = "localhost";
 
-    /** Puerto en el que escucha el servidor de sumo. */
+    //Puerto en el que escucha el servidor de sumo
     private static final int PUERTO_SERVIDOR = 9999;
 
-    /** Vista del cliente (formulario del luchador). */
+    //Vista del cliente (formulario del luchador)
     private final VistaCliente vista;
 
-    /** Utilidad para cargar el archivo de propiedades de kimarites. */
+    //Conexión al archivo de propiedades de kimarites (modelo)
     private final CargadorPropiedades cargadorPropiedades;
 
-    /** Ruta del archivo de propiedades seleccionado por el usuario. */
-    private String rutaArchivoPropiedades;
-
     /**
-     * Construye el controlador del cliente e inicializa la vista y las dependencias.
-     * Registra las acciones desacopladas (ActionListeners) en la vista.
+     * Construye el controlador del cliente, inicializa la vista y registra
+     * las acciones desacopladas en los botones.
      */
     public ControladorCliente() {
         this.cargadorPropiedades = new CargadorPropiedades();
@@ -65,49 +58,57 @@ public class ControladorCliente {
     }
 
     /**
-     * Método estático de entrada para iniciar el controlador del cliente.
-     * Es invocado desde {@link sumo.launcher.LauncherCliente} sin crear objetos allí.
+     * Método estático de entrada invocado desde {@link LauncherCliente}.
+     * Crea la única instancia del controlador sin que el Launcher cree objetos.
      */
     public static void iniciar() {
         new ControladorCliente();
     }
 
-    /**
-     * Registra las acciones desacopladas (ActionListeners) en los botones de la vista.
-     * Siguiendo la separación de eventos, listeners y performed exigida por el taller.
-     */
+    //Registra las acciones desacopladas en los botones de la vista.
+    //Este método SOLO asigna listeners — no contiene lógica de negocio.
     private void registrarAcciones() {
         vista.getBtnCargarKimarites().addActionListener(new AccionCargarKimarites(this));
         vista.getBtnConectar().addActionListener(new AccionConectar(this));
     }
 
     /**
-     * Abre el diálogo de selección de archivo y carga los kimarites en la vista.
-     * Invocado desde {@link AccionCargarKimarites#actionPerformed(java.awt.event.ActionEvent)}.
+     * Solicita la ruta del properties a la Vista (que gestiona el JFileChooser),
+     * carga los kimarites con {@link CargadorPropiedades} y los muestra en la lista.
+     * Invocado desde {@link AccionCargarKimarites#actionPerformed}.
      */
     public void cargarKimarites() {
-        rutaArchivoPropiedades = cargadorPropiedades.seleccionarArchivoPropiedades();
-        if (rutaArchivoPropiedades == null) {
+        //La Vista gestiona el JFileChooser y retorna solo la ruta (SRP)
+        String ruta = vista.seleccionarRutaProperties();
+        if (ruta == null) {
             vista.mostrarMensaje("No se seleccionó ningún archivo.");
             return;
         }
 
-        List<String> nombres = cargadorPropiedades.cargarNombresKimarites(rutaArchivoPropiedades);
+        List<String> nombres;
+        try {
+            nombres = cargadorPropiedades.cargarNombres(ruta);
+        } catch (IOException e) {
+            vista.mostrarMensaje("Error al leer el archivo: " + e.getMessage());
+            return;
+        }
+
         if (nombres.isEmpty()) {
             vista.mostrarMensaje("El archivo no contiene kimarites válidos.");
             return;
         }
 
         vista.cargarListaKimarites(nombres);
-        vista.mostrarEstado("✔ Kimarites cargados: " + nombres.size() + " técnicas disponibles");
+        vista.mostrarEstado("Kimarites cargados: " + nombres.size() + " tecnicas disponibles");
     }
 
     /**
-     * Valida los datos del formulario y establece la conexión con el servidor.
-     * Invocado desde {@link AccionConectar#actionPerformed(java.awt.event.ActionEvent)}.
+     * Valida los datos del formulario y conecta al servidor vía {@link ConexionCliente}.
+     * La conexión se ejecuta en un hilo de fondo para no bloquear el EDT.
+     * Invocado desde {@link AccionConectar#actionPerformed}.
      */
     public void conectarAlServidor() {
-        // ── Validaciones ──────────────────────────────────────────────────
+        //Validaciones de campos
         String nombre = vista.getNombreLuchador().trim();
         if (nombre.isEmpty()) {
             vista.mostrarMensaje("Debe ingresar el nombre del luchador.");
@@ -119,7 +120,7 @@ public class ControladorCliente {
             peso = Double.parseDouble(vista.getPesoLuchador().trim());
             if (peso <= 0) throw new NumberFormatException();
         } catch (NumberFormatException e) {
-            vista.mostrarMensaje("El peso debe ser un número positivo válido.");
+            vista.mostrarMensaje("El peso debe ser un numero positivo valido.");
             return;
         }
 
@@ -129,74 +130,63 @@ public class ControladorCliente {
             return;
         }
 
-        // ── Preparar datos a enviar ───────────────────────────────────────
-        String kimaritesStr = String.join(",", kimaritesSeleccionados);
-        String mensajeServidor = nombre + "|" + peso + "|" + kimaritesStr;
+        //Formatear mensaje para el servidor: "nombre|peso|k1,k2,k3"
+        String mensajeServidor = nombre + "|" + peso + "|"
+                + String.join(",", kimaritesSeleccionados);
 
         vista.setBtnConectarHabilitado(false);
-        vista.mostrarEstado("⏳ Conectando al servidor...");
+        vista.mostrarEstado("Conectando al servidor...");
 
-        // ── Conectar en hilo aparte para no bloquear el EDT ──────────────
-        Thread hiloConexion = new Thread(() -> ejecutarCombate(mensajeServidor), "HiloConexionCliente");
+        //Conectar en hilo aparte para no bloquear el EDT de Swing
+        Thread hiloConexion = new Thread(
+            () -> ejecutarCombate(mensajeServidor), "HiloConexionCliente");
         hiloConexion.setDaemon(true);
         hiloConexion.start();
     }
 
     /**
-     * Ejecuta el flujo completo de conexión al servidor, envío de datos y espera
-     * del resultado del combate. Se ejecuta en un hilo de fondo.
+     * Ejecuta el flujo completo: conectar, enviar datos, esperar resultado y cerrar.
+     * Se ejecuta en el hilo de fondo iniciado por {@link #conectarAlServidor()}.
      *
-     * @param mensajeServidor cadena de datos del luchador a enviar al servidor
+     * @param mensajeServidor datos del luchador formateados para el servidor
      */
     private void ejecutarCombate(String mensajeServidor) {
-        try (
-            Socket socket = new Socket(HOST_SERVIDOR, PUERTO_SERVIDOR);
-            PrintWriter salida = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader entrada = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()))
-        ) {
-            actualizarEstadoVista("⚔ Conectado. Esperando al oponente y el inicio del combate...");
+        ConexionCliente conexion = new ConexionCliente(HOST_SERVIDOR, PUERTO_SERVIDOR);
+        try {
+            conexion.conectar();
+            actualizarVista("Conectado. Esperando al oponente...");
 
-            // Enviar datos del luchador
-            salida.println(mensajeServidor);
+            //Enviar datos del luchador al servidor
+            conexion.enviar(mensajeServidor);
 
-            // Esperar resultado del combate (bloqueante hasta que el servidor responda)
-            String resultado = entrada.readLine();
+            //Esperar resultado del combate (bloqueante)
+            String resultado = conexion.recibirRespuesta();
 
-            // Notificar resultado en la vista y enviar confirmación
             if ("GANASTE".equals(resultado)) {
-                actualizarEstadoVista("🏆 ¡GANASTE EL COMBATE!");
-                mostrarResultadoVista(true);
+                actualizarVista("¡GANASTE EL COMBATE!");
+                mostrarResultado(true);
             } else {
-                actualizarEstadoVista("💀 Perdiste el combate...");
-                mostrarResultadoVista(false);
+                actualizarVista("Perdiste el combate...");
+                mostrarResultado(false);
             }
 
-            // Enviar confirmación al servidor antes de cerrar
-            salida.println("LISTO");
+            //Confirmar al servidor que el cliente terminó
+            conexion.enviar("LISTO");
 
         } catch (IOException e) {
-            actualizarEstadoVista("❌ Error de conexión: " + e.getMessage());
+            actualizarVista("Error de conexion: " + e.getMessage());
+        } finally {
+            try { conexion.cerrar(); } catch (IOException ignored) {}
         }
     }
 
-    /**
-     * Actualiza el panel de estado de la vista desde un hilo de fondo.
-     * Utiliza {@code SwingUtilities.invokeLater} para respetar el EDT.
-     *
-     * @param mensaje texto a mostrar en el estado
-     */
-    private void actualizarEstadoVista(String mensaje) {
+    //Actualiza el estado de la vista desde un hilo de fondo (respeta el EDT)
+    private void actualizarVista(String mensaje) {
         javax.swing.SwingUtilities.invokeLater(() -> vista.mostrarEstado(mensaje));
     }
 
-    /**
-     * Muestra el resultado final del combate en la vista.
-     * Utiliza {@code SwingUtilities.invokeLater} para respetar el EDT.
-     *
-     * @param gano {@code true} si el luchador ganó, {@code false} si perdió
-     */
-    private void mostrarResultadoVista(boolean gano) {
+    //Muestra el resultado final en la vista desde un hilo de fondo (respeta el EDT)
+    private void mostrarResultado(boolean gano) {
         javax.swing.SwingUtilities.invokeLater(() -> vista.mostrarResultadoCombate(gano));
     }
 }

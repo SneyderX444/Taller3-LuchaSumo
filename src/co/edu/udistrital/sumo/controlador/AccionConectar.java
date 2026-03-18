@@ -1,47 +1,42 @@
-package co.edu.udistrital.sumo.controlador.acciones;
+package co.edu.udistrital.sumo.controlador;
 
-import co.edu.udistrital.sumo.controlador.ControladorCliente;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 /**
- * Acción desencadenada al presionar el botón "Conectar al servidor" en la vista del cliente.
- * <p>
- * Siguiendo el principio de Responsabilidad Única (SRP) y la separación entre
- * <em>evento</em>, <em>listener</em> y <em>performed</em> exigida por el taller,
- * esta clase encapsula exclusivamente la acción de iniciar la conexión al servidor.
- * </p>
+ * Acción desencadenada al presionar "Conectar al Servidor" en la vista del cliente.
  *
- * <p>
- * La lógica de conexión reside en {@link ControladorCliente#conectarAlServidor()},
- * no en esta clase.
- * </p>
+ * Propósito: Desacoplar el evento del botón de la lógica de conexión,
+ * delegando completamente al {@link ControladorCliente}.
+ * Cumple la separación evento/listener/performed exigida por el taller (regla r).
+ * Se comunica con: {@link ControladorCliente} (único receptor de la acción).
+ * Principio SOLID:
+ * S — única responsabilidad: delegar la conexión al servidor al controlador.
  *
  * @author Grupo Taller 3
- * @version 1.0
+ * @version 2.0
  * @see ControladorCliente
  * @see AccionCargarKimarites
  */
 public class AccionConectar implements ActionListener {
 
-    /** Controlador del cliente al que se delega la acción de conexión. */
+    //Controlador del cliente al que se delega la acción
     private final ControladorCliente controlador;
 
     /**
-     * Construye la acción de conexión con referencia al controlador del cliente.
+     * Construye la acción con referencia al controlador del cliente.
      *
-     * @param controlador el controlador que ejecutará la lógica de conexión
+     * @param controlador controlador que ejecutará la lógica de conexión
      */
     public AccionConectar(ControladorCliente controlador) {
         this.controlador = controlador;
     }
 
     /**
-     * Invocado automáticamente por Swing cuando el usuario presiona el botón de conectar.
-     * Delega al controlador para validar los datos del luchador e iniciar la conexión
-     * al servidor vía socket.
+     * Invocado por Swing cuando el usuario presiona el botón.
+     * Delega al controlador para validar datos e iniciar la conexión al servidor.
      *
-     * @param e el evento de acción generado por el botón
+     * @param e evento de acción generado por el botón
      */
     @Override
     public void actionPerformed(ActionEvent e) {

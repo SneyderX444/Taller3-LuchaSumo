@@ -1,34 +1,29 @@
-package sumo.launcher;
+package co.edu.udistrital.sumo.controlador;
 
-import sumo.controlador.ControladorServidor;
 import javax.swing.SwingUtilities;
 
 /**
  * Punto de entrada de la aplicación servidor del Combate de Sumo.
- * <p>
- * Esta clase contiene unicamente el metodo {@code main}, el cual delega
- * la inicialización al método estático {@link ControladorServidor#iniciar()}.
- * </p>
  *
- * <p>
- * <b>Restricción del taller:</b> Esta clase no debe contener creación de objetos,
- * asignación de valores ni creación de interfaces. Solo invoca el arranque.
- * </p>
- *
- * <p>
- * <b>Orden de ejecución:</b> Este servidor debe iniciarse <em>antes</em> que los
- * clientes ({@link LauncherCliente}). Solo acepta exactamente dos conexiones.
- * </p>
+ * Propósito: Contener únicamente el método {@code main} e invocar
+ * {@link ControladorServidor#iniciar()} en el EDT de Swing.
+ * Restricción del taller (regla q): esta clase NO debe contener
+ * creación de objetos, asignación de valores ni creación de interfaces.
+ * Orden de ejecución: este servidor debe iniciarse ANTES que los clientes.
+ * Solo acepta exactamente dos conexiones.
+ * Se comunica con: {@link ControladorServidor} (único receptor del inicio).
+ * Principio SOLID:
+ * S — única responsabilidad: ser el punto de entrada del servidor.
  *
  * @author Grupo Taller 3
- * @version 1.0
+ * @version 2.0
  * @see ControladorServidor
  */
 public class LauncherServidor {
 
     /**
      * Método de entrada de la aplicación servidor.
-     * Inicia la interfaz gráfica del servidor en el EDT y arranca el socket en un hilo aparte.
+     * Inicia la interfaz gráfica del servidor en el EDT de Swing.
      *
      * @param args argumentos de línea de comandos (no utilizados)
      */

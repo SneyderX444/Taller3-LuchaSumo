@@ -5,646 +5,713 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import javax.imageio.ImageIO;
 
 /**
  * Vista del servidor en la arquitectura MVC del Combate de Sumo.
- * <p>
- * Muestra visualmente el desarrollo completo del combate de sumo:
- * <ul>
- *   <li>Estado de llegada de cada luchador al dohyō.</li>
- *   <li>Animación del ring (dohyō) con los luchadores representados.</li>
- *   <li>Log detallado de cada kimarite ejecutado en tiempo real.</li>
- *   <li>Anuncio del ganador al finalizar el combate.</li>
- * </ul>
- * </p>
  *
- * <p>
- * Principio de Responsabilidad Única (SRP): esta clase solo gestiona la presentación
- * del servidor. No contiene objetos del modelo ni lógica de negocio.
- * El controlador invoca sus métodos públicos con datos primitivos/String.
- * </p>
+ * Propósito: Mostrar visualmente el desarrollo del combate en tiempo real:
+ * llegada de luchadores, cada kimarite ejecutado con su imagen correspondiente,
+ * log del combate y anuncio del ganador.
+ * Se comunica con: {@link co.edu.udistrital.sumo.controlador.ControladorServidor}.
+ * Principio SOLID:
+ * S — única responsabilidad: presentación del servidor.
+ *
+ * ESTRUCTURA DE IMÁGENES ESPERADA en Data/Recursos/:
+ * - Fondo_Japones.png  → imagen de fondo de la ventana
+ * - Dohyo.png          → imagen del dohyō (opcional, dibujado en código)
+ * - Luchador1.png      → luchador 1 (izquierda, azul)
+ * - Luchador2.png      → luchador 2 (derecha, rojo)
+ * - Logo_Sumo.png      → logo del encabezado
+ *
+ * ESTRUCTURA IMÁGENES KIMARITES en Data/Imagenes_Kimarites/:
+ * - [NombreKimarite].gif  (ej: Hatakikomi.gif, Yorikiri.gif)
+ * El nombre del archivo debe coincidir exactamente con el kimarite del properties.
+ *
+ * PROHIBIDO en esta clase: objetos Rikishi/Kimarite, lógica de negocio, sockets.
  *
  * @author Grupo Taller 3
- * @version 1.0
- * @see sumo.controlador.ControladorServidor
+ * @version 3.0
+ * @see co.edu.udistrital.sumo.controlador.ControladorServidor
  */
 public class VistaServidor extends JFrame {
 
-    // ── Colores del tema servidor (más oscuro y solemne) ─────────────────────
-    /** Color de fondo principal. */
-    private static final Color FONDO        = new Color(10, 10, 20);
-    /** Color de acento dorado. */
-    private static final Color ACENTO       = new Color(212, 175, 55);
-    /** Color del panel de log. */
-    private static final Color FONDO_LOG    = new Color(18, 18, 30);
-    /** Color del texto del log. */
-    private static final Color TEXTO_LOG    = new Color(200, 200, 190);
-    /** Color de victoria. */
-    private static final Color COLOR_WIN    = new Color(50, 180, 50);
-    /** Color de derrota. */
-    private static final Color COLOR_LOSE   = new Color(180, 50, 50);
-    /** Color del luchador 1 (azul). */
-    static final Color COLOR_L1      = new Color(80, 130, 200);
-    /** Color del luchador 2 (rojo). */
-    static final Color COLOR_L2      = new Color(200, 80, 80);
+    // ── Rutas de recursos ─────────────────────────────────────────────────────
+    //Carpeta de imágenes generales — debe coincidir con la estructura del proyecto
+    static final String RUTA_RECURSOS  = "Data/Recursos/";
+    //Carpeta de imágenes de técnicas kimarite
+    static final String RUTA_KIMARITES = "Data/Imagenes_Kimarites/";
+
+    // ── Paleta de colores ─────────────────────────────────────────────────────
+    static final Color C_NEGRO  = new Color(8, 6, 14);
+    static final Color C_DORADO = new Color(212, 170, 45);
+    static final Color C_BLANCO = new Color(240, 232, 215);
+    static final Color C_ROJO   = new Color(190, 20, 20);
+    static final Color C_AZUL   = new Color(55, 110, 200);
+    static final Color C_GRIS   = new Color(140, 135, 155);
+    static final Color C_VERDE  = new Color(50, 175, 75);
+
+    // ── Imagen de fondo ───────────────────────────────────────────────────────
+    //Cargada desde Data/Recursos/Fondo_Japones.png
+    private BufferedImage imgFondo;
 
     // ── Componentes principales ───────────────────────────────────────────────
-    /** Panel visual animado del dohyō. */
-    private final PanelDohyoServidor panelDohyo;
-    /** Área de texto para el log de combate. */
-    private final JTextArea areaLog;
-    /** Etiqueta del luchador 1 (nombre y peso). */
+    //Panel central animado del dohyo
+    private final PanelDohyo panelDohyo;
+    //Área de log del combate
+    private final JTextArea  areaLog;
+    //Etiqueta nombre luchador 1
     private final JLabel lblLuchador1;
-    /** Etiqueta del luchador 2 (nombre y peso). */
+    //Etiqueta nombre luchador 2
     private final JLabel lblLuchador2;
-    /** Etiqueta del estado general del combate. */
-    private final JLabel lblEstadoCombate;
-    /** Panel de anuncio del ganador (inicialmente oculto). */
+    //Etiqueta del último kimarite ejecutado
+    private final JLabel lblUltimoKimarite;
+    //Etiqueta de estado general
+    private final JLabel lblEstado;
+    //Panel del ganador (inicialmente oculto)
     private final JPanel panelGanador;
-    /** Etiqueta con el nombre del ganador. */
-    private final JLabel lblNombreGanador;
+    //Etiqueta del nombre del ganador
+    private final JLabel lblGanador;
 
     /**
      * Construye y configura la ventana del servidor.
-     * Inicializa todos los paneles con el tema visual del combate.
      */
     public VistaServidor() {
-        super("🥋 Servidor - Combate de Sumo | Dohyō");
+        super("Servidor - Combate de Sumo | Dohyo");
+        cargarFondo();
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1000, 680);
+        setSize(1100, 700);
         setLocationRelativeTo(null);
         setResizable(false);
-        getContentPane().setBackground(FONDO);
 
-        // Inicializar componentes
-        panelDohyo        = new PanelDohyoServidor();
+        panelDohyo        = new PanelDohyo();
         areaLog           = crearAreaLog();
-        lblLuchador1      = crearEtiquetaLuchador("Esperando luchador 1...", COLOR_L1);
-        lblLuchador2      = crearEtiquetaLuchador("Esperando luchador 2...", COLOR_L2);
-        lblEstadoCombate  = crearEtiquetaEstado("⏳ Aguardando la llegada de los luchadores...");
-        lblNombreGanador  = crearEtiquetaGanador();   // Se crea ANTES que panelGanador
-        panelGanador      = crearPanelGanador(lblNombreGanador);
+        lblLuchador1      = crearEtiqLuchador("Esperando luchador 1...", C_AZUL);
+        lblLuchador2      = crearEtiqLuchador("Esperando luchador 2...", C_ROJO);
+        lblUltimoKimarite = crearEtiqKimarite();
+        lblEstado         = crearEtiqEstado();
+        lblGanador        = new JLabel("", SwingConstants.CENTER);
+        lblGanador.setFont(new Font("Serif", Font.BOLD, 18));
+        lblGanador.setForeground(C_DORADO);
+        panelGanador      = construirPanelGanador();
 
         construirLayout();
     }
 
-    // ─── Construcción del layout ──────────────────────────────────────────────
+    // ─── Layout ───────────────────────────────────────────────────────────────
 
-    /**
-     * Construye y organiza todos los paneles de la ventana del servidor.
-     */
+    //Construye el layout principal de la ventana
     private void construirLayout() {
-        setLayout(new BorderLayout(10, 10));
-        ((JPanel) getContentPane()).setBorder(new EmptyBorder(12, 12, 12, 12));
+        /*
+         * FIX 1: setOpaque(true) — el panel raíz DEBE ser opaco porque es el
+         * contentPane. Si es no-opaco, Swing intenta pintar el padre detrás de
+         * él causando artefactos visuales y corrupción de rendering.
+         * El fondo se dibuja en paintComponent, que cubre todo el panel.
+         */
+        JPanel raiz = new JPanel(new BorderLayout(0, 0)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                //No llamar a super para evitar el fondo gris predeterminado
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING,
+                                    RenderingHints.VALUE_RENDER_QUALITY);
+                if (imgFondo != null) {
+                    //Dibujar imagen de fondo escalada al tamaño de la ventana
+                    g2.drawImage(imgFondo, 0, 0, getWidth(), getHeight(), null);
+                    //Overlay oscuro para legibilidad del contenido
+                    g2.setColor(new Color(5, 4, 12, 188));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                } else {
+                    //Degradado fallback si no existe la imagen de fondo
+                    g2.setPaint(new GradientPaint(
+                        0, 0, new Color(8, 6, 14),
+                        getWidth(), getHeight(), new Color(22, 8, 8)));
+                    g2.fillRect(0, 0, getWidth(), getHeight());
+                }
+            }
+        };
+        raiz.setOpaque(true); // FIX 1: debe ser true
+        setContentPane(raiz);
 
-        add(crearPanelEncabezado(), BorderLayout.NORTH);
-        add(crearPanelContenido(), BorderLayout.CENTER);
-        add(crearPanelEstadoBar(), BorderLayout.SOUTH);
+        raiz.add(construirEncabezado(), BorderLayout.NORTH);
+        raiz.add(construirCentro(),     BorderLayout.CENTER);
+        raiz.add(construirEstado(),     BorderLayout.SOUTH);
     }
 
-    /**
-     * Crea el encabezado con el título y los paneles de los luchadores.
-     *
-     * @return panel de encabezado
-     */
-    private JPanel crearPanelEncabezado() {
-        JPanel panel = new JPanel(new BorderLayout(10, 5));
-        panel.setBackground(FONDO);
-        panel.setBorder(new EmptyBorder(0, 0, 8, 0));
+    //Encabezado con título, logo y paneles de luchadores
+    private JPanel construirEncabezado() {
+        JPanel p = new JPanel(new BorderLayout(0, 8));
+        p.setOpaque(false);
+        p.setBorder(new EmptyBorder(14, 22, 8, 22));
 
-        JLabel lblTitulo = new JLabel("相撲 — EL COMBATE", SwingConstants.CENTER);
-        lblTitulo.setFont(new Font("Serif", Font.BOLD, 28));
-        lblTitulo.setForeground(ACENTO);
+        //Panel superior: logo + título
+        JPanel pTop = new JPanel(new BorderLayout(12, 0));
+        pTop.setOpaque(false);
 
-        JPanel panelLuchadores = new JPanel(new GridLayout(1, 3, 10, 0));
-        panelLuchadores.setBackground(FONDO);
+        //Logo desde Data/Recursos/Logo_Sumo.png
+        JLabel lblLogo = new JLabel();
+        cargarImagenEnLabel(lblLogo, RUTA_RECURSOS + "Logo_Sumo.png", 55, 55);
 
-        JPanel p1 = envolverEtiqueta(lblLuchador1, COLOR_L1);
-        JLabel vs = new JLabel("VS", SwingConstants.CENTER);
-        vs.setFont(new Font("Serif", Font.BOLD, 24));
-        vs.setForeground(new Color(200, 200, 100));
-        vs.setOpaque(true);
-        vs.setBackground(new Color(30, 30, 50));
-        JPanel p2 = envolverEtiqueta(lblLuchador2, COLOR_L2);
+        JPanel pTitulos = new JPanel(new GridLayout(2, 1, 0, 2));
+        pTitulos.setOpaque(false);
+        JLabel lbl1 = new JLabel("相撲  —  EL COMBATE", SwingConstants.CENTER);
+        lbl1.setFont(new Font("Serif", Font.BOLD, 24));
+        lbl1.setForeground(C_DORADO);
+        JLabel lbl2 = new JLabel("Programación Avanzada  ·  UDFJC",
+                                  SwingConstants.CENTER);
+        lbl2.setFont(new Font("Serif", Font.PLAIN, 11));
+        lbl2.setForeground(C_GRIS);
+        pTitulos.add(lbl1);
+        pTitulos.add(lbl2);
 
-        panelLuchadores.add(p1);
-        panelLuchadores.add(vs);
-        panelLuchadores.add(p2);
+        pTop.add(lblLogo,   BorderLayout.WEST);
+        pTop.add(pTitulos,  BorderLayout.CENTER);
+        p.add(pTop, BorderLayout.NORTH);
 
-        panel.add(lblTitulo, BorderLayout.NORTH);
-        panel.add(panelLuchadores, BorderLayout.CENTER);
-        return panel;
-    }
+        //Fila de luchadores: L1 | VS | L2
+        JPanel pLuch = new JPanel(new GridLayout(1, 3, 12, 0));
+        pLuch.setOpaque(false);
+        //FIX 3 y 4: nombres correctos de las imágenes disponibles
+        pLuch.add(construirPanelLuchador(lblLuchador1, C_AZUL, "Luchador1.png"));
+        pLuch.add(construirVS());
+        pLuch.add(construirPanelLuchador(lblLuchador2, C_ROJO, "Luchador2.png"));
+        p.add(pLuch, BorderLayout.CENTER);
 
-    /**
-     * Crea el panel central con el dohyō visual y el log del combate.
-     *
-     * @return panel central con dos columnas
-     */
-    private JPanel crearPanelContenido() {
-        JPanel panel = new JPanel(new GridLayout(1, 2, 12, 0));
-        panel.setBackground(FONDO);
-
-        // Panel izquierdo: dohyō visual + ganador
-        JPanel panelIzq = new JPanel(new BorderLayout(0, 8));
-        panelIzq.setBackground(FONDO);
-        panelIzq.add(panelDohyo, BorderLayout.CENTER);
-        panelIzq.add(panelGanador, BorderLayout.SOUTH);
-
-        // Panel derecho: log del combate
-        JScrollPane scrollLog = new JScrollPane(areaLog);
-        scrollLog.setBackground(FONDO_LOG);
-        scrollLog.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(ACENTO, 1),
-            BorderFactory.createEmptyBorder()
-        ));
-        scrollLog.getViewport().setBackground(FONDO_LOG);
-        TitledBorder tb = BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(ACENTO), "📋 Log del Combate");
-        tb.setTitleColor(ACENTO);
-        tb.setTitleFont(new Font("SansSerif", Font.BOLD, 12));
-        scrollLog.setBorder(tb);
-
-        panel.add(panelIzq);
-        panel.add(scrollLog);
-        return panel;
-    }
-
-    /**
-     * Crea la barra de estado inferior.
-     *
-     * @return panel con la etiqueta de estado
-     */
-    private JPanel crearPanelEstadoBar() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(new Color(8, 8, 18));
-        panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(ACENTO, 1),
-            new EmptyBorder(6, 12, 6, 12)
-        ));
-        panel.add(lblEstadoCombate, BorderLayout.CENTER);
-        return panel;
-    }
-
-    // ─── Fábrica de componentes ───────────────────────────────────────────────
-
-    /**
-     * Crea el área de texto para el log del combate.
-     *
-     * @return área de texto configurada y no editable
-     */
-    private JTextArea crearAreaLog() {
-        JTextArea area = new JTextArea();
-        area.setBackground(FONDO_LOG);
-        area.setForeground(TEXTO_LOG);
-        area.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        area.setEditable(false);
-        area.setLineWrap(true);
-        area.setWrapStyleWord(true);
-        area.setBorder(new EmptyBorder(8, 8, 8, 8));
-        return area;
-    }
-
-    /**
-     * Crea una etiqueta de luchador con el color asignado.
-     *
-     * @param texto  texto inicial de la etiqueta
-     * @param color  color del borde e indicador
-     * @return etiqueta estilizada
-     */
-    private JLabel crearEtiquetaLuchador(String texto, Color color) {
-        JLabel lbl = new JLabel(texto, SwingConstants.CENTER);
-        lbl.setForeground(color);
-        lbl.setFont(new Font("SansSerif", Font.BOLD, 13));
-        return lbl;
-    }
-
-    /**
-     * Crea la etiqueta de estado del combate en la barra inferior.
-     *
-     * @param texto texto inicial
-     * @return etiqueta de estado
-     */
-    private JLabel crearEtiquetaEstado(String texto) {
-        JLabel lbl = new JLabel(texto, SwingConstants.LEFT);
-        lbl.setForeground(new Color(150, 210, 150));
-        lbl.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        return lbl;
-    }
-
-    /**
-     * Crea la etiqueta que mostrará el nombre del ganador al finalizar el combate.
-     *
-     * @return etiqueta del ganador, inicialmente vacía
-     */
-    private JLabel crearEtiquetaGanador() {
-        JLabel lbl = new JLabel("", SwingConstants.CENTER);
-        lbl.setForeground(Color.WHITE);
-        lbl.setFont(new Font("Serif", Font.BOLD, 18));
-        return lbl;
-    }
-
-    /**
-     * Crea el panel de anuncio del ganador (inicialmente oculto).
-     * Recibe la etiqueta ya construida para evitar casts frágiles.
-     *
-     * @param etiquetaGanador etiqueta donde se mostrará el nombre del ganador
-     * @return panel con fondo llamativo que contiene la etiqueta
-     */
-    private JPanel crearPanelGanador(JLabel etiquetaGanador) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(new Color(40, 100, 40));
-        panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(ACENTO, 2),
-            new EmptyBorder(10, 10, 10, 10)
-        ));
-        panel.add(etiquetaGanador, BorderLayout.CENTER);
-        panel.setVisible(false);
-        return panel;
-    }
-
-    /**
-     * Envuelve una etiqueta en un panel con borde del color indicado.
-     *
-     * @param lbl   etiqueta a envolver
-     * @param color color del borde
-     * @return panel contenedor
-     */
-    private JPanel envolverEtiqueta(JLabel lbl, Color color) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setBackground(new Color(25, 25, 40));
-        p.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(color, 2),
-            new EmptyBorder(8, 10, 8, 10)
-        ));
-        p.add(lbl, BorderLayout.CENTER);
+        JSeparator sep = new JSeparator();
+        sep.setForeground(new Color(C_DORADO.getRed(), C_DORADO.getGreen(),
+                                     C_DORADO.getBlue(), 90));
+        p.add(sep, BorderLayout.SOUTH);
         return p;
     }
 
-    // ─── Métodos públicos de actualización de la vista ────────────────────────
+    //Panel de un luchador en el encabezado con imagen y nombre
+    private JPanel construirPanelLuchador(JLabel lblNombre, Color color,
+                                           String nombreImagen) {
+        JPanel p = new JPanel(new BorderLayout(8, 0));
+        p.setBackground(new Color(15, 12, 24, 200));
+        p.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(
+                new Color(color.getRed(), color.getGreen(), color.getBlue(), 130), 1),
+            new EmptyBorder(8, 10, 8, 10)));
+
+        JLabel lblImg = new JLabel();
+        cargarImagenEnLabel(lblImg, RUTA_RECURSOS + nombreImagen, 48, 58);
+        if (lblImg.getIcon() == null) {
+            lblImg.setPreferredSize(new Dimension(48, 58));
+            lblImg.setBackground(new Color(color.getRed(), color.getGreen(),
+                                            color.getBlue(), 60));
+            lblImg.setOpaque(true);
+        }
+        p.add(lblImg,    BorderLayout.WEST);
+        p.add(lblNombre, BorderLayout.CENTER);
+        return p;
+    }
+
+    //Panel VS central
+    private JPanel construirVS() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setOpaque(false);
+        JLabel vs = new JLabel("VS", SwingConstants.CENTER);
+        vs.setFont(new Font("Serif", Font.BOLD, 28));
+        vs.setForeground(new Color(200, 195, 100));
+        p.add(vs, BorderLayout.CENTER);
+        return p;
+    }
+
+    //Panel central: dohyo izquierdo + log derecho
+    private JPanel construirCentro() {
+        JPanel p = new JPanel(new GridLayout(1, 2, 15, 0));
+        p.setOpaque(false);
+        p.setBorder(new EmptyBorder(10, 22, 8, 22));
+
+        JPanel pIzq = new JPanel(new BorderLayout(0, 6));
+        pIzq.setOpaque(false);
+        pIzq.add(panelDohyo, BorderLayout.CENTER);
+
+        JPanel pFootIzq = new JPanel(new BorderLayout(0, 4));
+        pFootIzq.setOpaque(false);
+        pFootIzq.add(lblUltimoKimarite, BorderLayout.NORTH);
+        pFootIzq.add(panelGanador,      BorderLayout.CENTER);
+        pIzq.add(pFootIzq, BorderLayout.SOUTH);
+
+        JScrollPane scroll = new JScrollPane(areaLog);
+        scroll.setBackground(new Color(8, 6, 18));
+        scroll.getViewport().setBackground(new Color(8, 6, 18));
+        TitledBorder tb = BorderFactory.createTitledBorder(
+            BorderFactory.createLineBorder(
+                new Color(C_DORADO.getRed(), C_DORADO.getGreen(),
+                           C_DORADO.getBlue(), 110), 1),
+            "  Log del Combate");
+        tb.setTitleColor(C_DORADO);
+        tb.setTitleFont(new Font("Serif", Font.BOLD, 12));
+        scroll.setBorder(tb);
+
+        p.add(pIzq);
+        p.add(scroll);
+        return p;
+    }
+
+    //Barra de estado inferior
+    private JPanel construirEstado() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(new Color(5, 4, 10));
+        p.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0,
+                new Color(C_DORADO.getRed(), C_DORADO.getGreen(),
+                           C_DORADO.getBlue(), 80)),
+            new EmptyBorder(7, 22, 7, 22)));
+        p.add(lblEstado, BorderLayout.CENTER);
+        return p;
+    }
+
+    //Panel del ganador, inicialmente oculto
+    private JPanel construirPanelGanador() {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(new Color(28, 70, 28, 235));
+        p.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(C_DORADO, 2),
+            new EmptyBorder(10, 12, 10, 12)));
+        p.add(lblGanador, BorderLayout.CENTER);
+        p.setVisible(false);
+        return p;
+    }
+
+    // ─── Fábricas de componentes ──────────────────────────────────────────────
+
+    private JTextArea crearAreaLog() {
+        JTextArea a = new JTextArea();
+        a.setBackground(new Color(8, 6, 18));
+        a.setForeground(new Color(195, 190, 175));
+        a.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        a.setEditable(false);
+        a.setLineWrap(true);
+        a.setWrapStyleWord(true);
+        a.setBorder(new EmptyBorder(8, 10, 8, 10));
+        return a;
+    }
+
+    private JLabel crearEtiqLuchador(String txt, Color color) {
+        JLabel l = new JLabel(txt, SwingConstants.CENTER);
+        l.setForeground(color);
+        l.setFont(new Font("Serif", Font.BOLD, 13));
+        return l;
+    }
+
+    private JLabel crearEtiqKimarite() {
+        JLabel l = new JLabel(" ", SwingConstants.CENTER);
+        l.setForeground(C_GRIS);
+        l.setFont(new Font("Serif", Font.ITALIC, 12));
+        l.setBackground(new Color(15, 12, 24));
+        l.setOpaque(true);
+        l.setBorder(new EmptyBorder(5, 10, 5, 10));
+        return l;
+    }
+
+    private JLabel crearEtiqEstado() {
+        JLabel l = new JLabel("Servidor iniciado. Esperando luchadores...");
+        l.setForeground(new Color(130, 190, 130));
+        l.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        return l;
+    }
+
+    // ─── Carga de imágenes ────────────────────────────────────────────────────
+
+    //Carga el fondo desde Data/Recursos/Fondo_Japones.png
+    private void cargarFondo() {
+        try {
+            //FIX 3: usar el nombre real de la imagen disponible
+            File f = new File(RUTA_RECURSOS + "Fondo_Japones.png");
+            if (f.exists()) imgFondo = ImageIO.read(f);
+        } catch (IOException e) {
+            imgFondo = null;
+        }
+    }
 
     /**
-     * Agrega una línea de texto al log del combate y hace scroll automático al final.
-     * Debe invocarse desde el EDT.
+     * Carga una imagen en un JLabel redimensionada. Falla silenciosamente.
      *
-     * @param mensaje texto a agregar al log
+     * @param label JLabel destino
+     * @param ruta  ruta del archivo de imagen
+     * @param ancho ancho deseado en píxeles
+     * @param alto  alto deseado en píxeles
      */
-    public void mostrarMensaje(String mensaje) {
-        areaLog.append(mensaje + "\n");
+    private void cargarImagenEnLabel(JLabel label, String ruta, int ancho, int alto) {
+        try {
+            File f = new File(ruta);
+            if (!f.exists()) return;
+            ImageIcon raw = new ImageIcon(f.getAbsolutePath());
+            Image img = raw.getImage().getScaledInstance(ancho, alto, Image.SCALE_SMOOTH);
+            label.setIcon(new ImageIcon(img));
+        } catch (Exception e) {
+            label.setIcon(null);
+        }
+    }
+
+    // ─── Métodos públicos de actualización ───────────────────────────────────
+
+    //Agrega una línea al log con scroll automático al final
+    public void mostrarMensaje(String msg) {
+        areaLog.append(msg + "\n");
         areaLog.setCaretPosition(areaLog.getDocument().getLength());
-        lblEstadoCombate.setText(mensaje);
+        lblEstado.setText(msg);
     }
 
-    /**
-     * Actualiza el panel del luchador indicado con su nombre y peso.
-     * Debe invocarse desde el EDT.
-     *
-     * @param nombre nombre del luchador
-     * @param peso   peso del luchador en kg
-     * @param indice posición (0 = luchador 1, 1 = luchador 2)
-     */
+    //Actualiza el nombre del luchador en el encabezado y el dohyo
     public void mostrarLuchadorEnDohyo(String nombre, double peso, int indice) {
-        String texto = String.format("🥋 %s (%.1f kg)", nombre, peso);
+        String txt = String.format("%s  (%.1f kg)", nombre, peso);
         if (indice == 0) {
-            lblLuchador1.setText(texto);
-            panelDohyo.setNombreLuchador(nombre, indice);
+            lblLuchador1.setText(txt);
         } else {
-            lblLuchador2.setText(texto);
-            panelDohyo.setNombreLuchador(nombre, indice);
+            lblLuchador2.setText(txt);
         }
+        panelDohyo.setNombreLuchador(nombre, indice);
     }
 
-    /**
-     * Actualiza el estado visual para mostrar el inicio del combate.
-     * Debe invocarse desde el EDT.
-     *
-     * @param nombreL1 nombre del luchador 1
-     * @param nombreL2 nombre del luchador 2
-     */
+    //Actualiza el estado visual al inicio del combate
     public void mostrarInicioCombate(String nombreL1, String nombreL2) {
-        lblEstadoCombate.setText("⚔ ¡COMBATE INICIADO! " + nombreL1 + " vs " + nombreL2);
-        panelDohyo.setEstado(PanelDohyoServidor.Estado.COMBATE);
+        lblEstado.setText("¡COMBATE INICIADO!  " + nombreL1 + "  vs  " + nombreL2);
+        panelDohyo.setEstado(PanelDohyo.Estado.COMBATE);
     }
 
     /**
-     * Muestra en el dohyō visual el kimarite ejecutado y su resultado.
-     * Debe invocarse desde el EDT.
+     * Muestra el kimarite ejecutado y carga su imagen desde Data/Imagenes_Kimarites/.
+     * El nombre del archivo GIF debe coincidir con el nombre del kimarite.
      *
-     * @param nombreLuchador nombre del luchador atacante
-     * @param nombreKimarite nombre de la técnica ejecutada
-     * @param expulsado      {@code true} si el oponente fue expulsado
+     * @param nombreLuchador nombre del atacante
+     * @param nombreKimarite nombre de la técnica (= nombre del archivo sin extensión)
+     * @param expulsado      true si el oponente fue expulsado
      */
-    public void mostrarKimarite(String nombreLuchador, String nombreKimarite, boolean expulsado) {
-        panelDohyo.setUltimoAtaque(nombreLuchador, nombreKimarite, expulsado);
+    public void mostrarKimarite(String nombreLuchador, String nombreKimarite,
+                                 boolean expulsado) {
+        String res = expulsado ? "¡EXPULSADO!" : "El oponente resiste";
+        lblUltimoKimarite.setText(
+            String.format("  %s  [%s]  —  %s", nombreLuchador, nombreKimarite, res));
+        lblUltimoKimarite.setForeground(expulsado ? C_ROJO : C_VERDE);
+        panelDohyo.setKimarite(nombreKimarite, expulsado);
     }
 
-    /**
-     * Muestra el panel del ganador con su nombre y victorias.
-     * Actualiza el estado visual del dohyō.
-     * Debe invocarse desde el EDT.
-     *
-     * @param nombreGanador    nombre del luchador ganador
-     * @param victoriasGanador número de victorias acumuladas
-     */
-    public void mostrarGanador(String nombreGanador, int victoriasGanador) {
-        panelDohyo.setEstado(PanelDohyoServidor.Estado.TERMINADO);
+    //Muestra el ganador y actualiza el dohyo
+    public void mostrarGanador(String nombreGanador, int victorias) {
+        panelDohyo.setEstado(PanelDohyo.Estado.TERMINADO);
         panelDohyo.setNombreGanador(nombreGanador);
-
-        lblNombreGanador.setText("🏆 GANADOR: " + nombreGanador + " | " + victoriasGanador + " victoria(s)");
+        lblGanador.setText("GANADOR:  " + nombreGanador
+            + "  |  " + victorias + " victoria(s)");
         panelGanador.setVisible(true);
-        lblEstadoCombate.setText("🏆 Combate finalizado. Ganador: " + nombreGanador);
+        lblEstado.setText("Combate finalizado. Ganador: " + nombreGanador);
     }
 
-    // ─── Inner class: Panel visual animado del Dohyō ─────────────────────────
+    // ─── Inner class: Panel del Dohyo ────────────────────────────────────────
 
     /**
-     * Panel personalizado que dibuja el dohyō con los luchadores y el estado del combate.
-     * Se actualiza en cada evento del combate mediante {@code repaint()}.
+     * Panel animado que dibuja el dohyo, los luchadores y muestra la imagen
+     * de cada kimarite ejecutado en tiempo real.
      */
-    static class PanelDohyoServidor extends JPanel {
+    static class PanelDohyo extends JPanel {
 
-        /**
-         * Estados visuales del dohyō.
-         */
-        enum Estado {
-            /** Esperando a que lleguen los luchadores. */
-            ESPERA,
-            /** Combate en curso. */
-            COMBATE,
-            /** Combate finalizado. */
-            TERMINADO
-        }
+        //Estados visuales del panel
+        enum Estado { ESPERA, COMBATE, TERMINADO }
 
-        /** Estado actual del dohyō. */
         private Estado estado = Estado.ESPERA;
-        /** Nombres de los luchadores (índices 0 y 1). */
         private final String[] nombres = {"?", "?"};
-        /** Nombre del último luchador en atacar. */
-        private String ultimoAtacante = "";
-        /** Nombre del último kimarite usado. */
-        private String ultimoKimarite = "";
-        /** Si el último ataque resultó en expulsión. */
-        private boolean ultimaExpulsion = false;
-        /** Nombre del ganador del combate. */
         private String nombreGanador = "";
+        private String ultimoKimarite = "";
+        private boolean ultimaExpulsion = false;
 
-        /**
-         * Construye el panel del dohyō con fondo oscuro.
+        //Imágenes de los luchadores (índice 0 = izquierdo, 1 = derecho)
+        private final BufferedImage[] imgLuchadores = new BufferedImage[2];
+
+        /*
+         * FIX 5: Para GIFs se usa ImageIcon en lugar de ImageIO.read().
+         * ImageIcon maneja animaciones y carga asíncrona correctamente.
+         * imgKimariteIcon se usa para renderizar el GIF en el panel.
          */
-        public PanelDohyoServidor() {
-            setBackground(FONDO);
-            setBorder(BorderFactory.createLineBorder(ACENTO, 1));
+        private ImageIcon imgKimariteIcon;
+
+        //Ángulo de animación del ring decorativo
+        private float anguloAnim = 0f;
+        //Timer a ~30fps para el anillo giratorio
+        private final Timer timerAnim;
+        //Pulso de impacto cuando hay expulsión
+        private int pulso = 0;
+
+        //Construye el panel, carga imágenes de luchadores e inicia la animación
+        public PanelDohyo() {
+            setOpaque(false);
+            setBorder(BorderFactory.createLineBorder(
+                new Color(212, 170, 45, 100), 1));
+
+            //FIX 4: nombres correctos de las imágenes disponibles
+            String[] archivos = {"Luchador1.png", "Luchador2.png"};
+            for (int i = 0; i < 2; i++) {
+                try {
+                    File f = new File(RUTA_RECURSOS + archivos[i]);
+                    if (f.exists()) imgLuchadores[i] = ImageIO.read(f);
+                } catch (IOException ignored) {}
+            }
+
+            timerAnim = new Timer(33, e -> {
+                anguloAnim = (anguloAnim + 0.7f) % 360f;
+                if (pulso > 0) pulso--;
+                repaint();
+            });
+            timerAnim.start();
         }
 
-        /**
-         * Actualiza el nombre de un luchador y repinta.
-         *
-         * @param nombre nombre del luchador
-         * @param indice posición (0 o 1)
-         */
+        //Actualiza el nombre de un luchador en el ring
         public void setNombreLuchador(String nombre, int indice) {
             nombres[indice] = nombre;
             repaint();
         }
 
-        /**
-         * Actualiza el estado del dohyō y repinta.
-         *
-         * @param nuevoEstado nuevo estado visual
-         */
-        public void setEstado(Estado nuevoEstado) {
-            this.estado = nuevoEstado;
+        //Cambia el estado visual del panel
+        public void setEstado(Estado e) {
+            this.estado = e;
+            if (e == Estado.TERMINADO) timerAnim.stop();
             repaint();
         }
 
         /**
-         * Registra el último ataque para mostrarlo en el panel.
+         * Carga la imagen del kimarite usando ImageIcon (soporta GIF animado).
+         * Busca en Data/Imagenes_Kimarites/ con extensiones .gif, .png, .jpg.
          *
-         * @param atacante  nombre del atacante
-         * @param kimarite  nombre de la técnica
-         * @param expulsado si resultó en expulsión
+         * @param nombreKimarite nombre de la técnica = nombre del archivo sin extensión
+         * @param expulsado      true si el oponente fue expulsado
          */
-        public void setUltimoAtaque(String atacante, String kimarite, boolean expulsado) {
-            this.ultimoAtacante = atacante;
-            this.ultimoKimarite = kimarite;
+        public void setKimarite(String nombreKimarite, boolean expulsado) {
+            this.ultimoKimarite  = nombreKimarite;
             this.ultimaExpulsion = expulsado;
+            if (expulsado) pulso = 10;
+
+            imgKimariteIcon = null;
+            //FIX 5: usar ImageIcon para GIFs — soporta animación y carga confiable
+            for (String ext : new String[]{".gif", ".png", ".jpg", ".jpeg"}) {
+                File f = new File(RUTA_KIMARITES + nombreKimarite + ext);
+                if (f.exists()) {
+                    imgKimariteIcon = new ImageIcon(f.getAbsolutePath());
+                    //Registrar este panel como observer para que el GIF repinte
+                    imgKimariteIcon.setImageObserver(this);
+                    break;
+                }
+            }
             repaint();
         }
 
-        /**
-         * Establece el nombre del ganador para la pantalla final.
-         *
-         * @param ganador nombre del ganador
-         */
+        //Establece el nombre del ganador para la pantalla final
         public void setNombreGanador(String ganador) {
             this.nombreGanador = ganador;
             repaint();
         }
 
-        /**
-         * Renderiza el dohyō con antialiasing, el ring circular, los luchadores
-         * y el estado actual del combate.
-         *
-         * @param g contexto gráfico
-         */
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                                RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
             int w = getWidth(), h = getHeight();
-            int cx = w / 2, cy = h / 2 - 20;
-            int radio = Math.min(w, h - 80) / 2 - 15;
+            if (w <= 0 || h <= 0) { g2.dispose(); return; }
 
-            dibujarRing(g2, cx, cy, radio);
+            int cx = w / 2, cy = h / 2 - 20;
+            int r = Math.min(w, h - 80) / 2 - 18;
+            if (r <= 0) { g2.dispose(); return; }
+
+            pintarDecoracion(g2, cx, cy, r);
+            pintarRing(g2, cx, cy, r);
 
             switch (estado) {
-                case ESPERA:
-                    dibujarEstadoEspera(g2, cx, cy, radio);
-                    break;
-                case COMBATE:
-                    dibujarEstadoCombate(g2, cx, cy, radio);
-                    break;
-                case TERMINADO:
-                    dibujarEstadoTerminado(g2, cx, cy, radio);
-                    break;
+                case ESPERA:    pintarEspera(g2, cx, cy, r);       break;
+                case COMBATE:   pintarCombate(g2, cx, cy, r);      break;
+                case TERMINADO: pintarTerminado(g2, cx, cy, r);    break;
             }
 
-            // Mostrar último kimarite en la parte inferior
-            if (!ultimoKimarite.isEmpty()) {
-                dibujarInfoKimarite(g2, cx, h - 30);
+            //Imagen del kimarite superpuesta al centro durante el combate
+            if (estado == Estado.COMBATE && imgKimariteIcon != null) {
+                pintarImagenKimarite(g2, cx, cy, r);
             }
 
             g2.dispose();
         }
 
-        /**
-         * Dibuja la estructura visual del ring (dohyō).
-         *
-         * @param g2    contexto gráfico
-         * @param cx    centro horizontal
-         * @param cy    centro vertical
-         * @param radio radio del ring
-         */
-        private void dibujarRing(Graphics2D g2, int cx, int cy, int radio) {
-            // Sombra del ring
-            g2.setColor(new Color(0, 0, 0, 80));
-            g2.fillOval(cx - radio + 5, cy - radio + 5, radio * 2, radio * 2);
+        //Anillos decorativos giratorios exteriores
+        private void pintarDecoracion(Graphics2D g2, int cx, int cy, int r) {
+            g2.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_ROUND,
+                BasicStroke.JOIN_ROUND, 0, new float[]{5, 9}, anguloAnim));
+            g2.setColor(new Color(212, 170, 45, 55));
+            int re = r + 16;
+            g2.drawOval(cx - re, cy - re, re * 2, re * 2);
 
-            // Piso de arena
-            GradientPaint gradArena = new GradientPaint(
-                cx - radio, cy - radio, new Color(220, 185, 115),
-                cx + radio, cy + radio, new Color(190, 155, 85));
-            g2.setPaint(gradArena);
-            g2.fillOval(cx - radio, cy - radio, radio * 2, radio * 2);
-
-            // Borde exterior de paja (tawara)
-            g2.setColor(new Color(140, 80, 20));
-            g2.setStroke(new BasicStroke(10));
-            g2.drawOval(cx - radio, cy - radio, radio * 2, radio * 2);
-
-            // Borde dorado
-            g2.setColor(ACENTO);
-            g2.setStroke(new BasicStroke(2));
-            g2.drawOval(cx - radio - 6, cy - radio - 6, (radio + 6) * 2, (radio + 6) * 2);
-
-            // Líneas shikiri-sen
-            g2.setColor(new Color(100, 60, 20));
-            g2.setStroke(new BasicStroke(3));
-            int ls = 18;
-            g2.drawLine(cx - ls, cy + 5, cx - 5, cy + 5);
-            g2.drawLine(cx + 5,  cy + 5, cx + ls, cy + 5);
+            g2.setStroke(new BasicStroke(0.8f, BasicStroke.CAP_ROUND,
+                BasicStroke.JOIN_ROUND, 0, new float[]{3, 11}, -anguloAnim * 1.4f));
+            g2.setColor(new Color(190, 20, 20, 40));
+            int rm = r + 9;
+            g2.drawOval(cx - rm, cy - rm, rm * 2, rm * 2);
+            g2.setStroke(new BasicStroke(1));
         }
 
-        /**
-         * Dibuja el estado de espera: textos indicando la posición de cada luchador.
-         *
-         * @param g2    contexto gráfico
-         * @param cx    centro horizontal
-         * @param cy    centro vertical
-         * @param radio radio del ring
-         */
-        private void dibujarEstadoEspera(Graphics2D g2, int cx, int cy, int radio) {
-            g2.setFont(new Font("SansSerif", Font.BOLD, 13));
-            g2.setColor(COLOR_L1);
-            g2.drawString(nombres[0], cx - radio + 10, cy - 10);
-            g2.setColor(COLOR_L2);
-            g2.drawString(nombres[1], cx + radio - 70, cy - 10);
+        //Dibuja el ring de arena con bordes, gradiente y líneas shikiri-sen
+        private void pintarRing(Graphics2D g2, int cx, int cy, int r) {
+            //Sombra
+            g2.setColor(new Color(0, 0, 0, 70));
+            g2.fillOval(cx - r + 8, cy - r + 8, r * 2, r * 2);
 
-            g2.setColor(new Color(200, 200, 100));
-            g2.setFont(new Font("Serif", Font.ITALIC, 14));
-            String espera = "Esperando luchadores...";
-            FontMetrics fm = g2.getFontMetrics();
-            g2.drawString(espera, cx - fm.stringWidth(espera) / 2, cy + 20);
-        }
-
-        /**
-         * Dibuja el estado de combate: figuras de los luchadores enfrentados.
-         *
-         * @param g2    contexto gráfico
-         * @param cx    centro horizontal
-         * @param cy    centro vertical
-         * @param radio radio del ring
-         */
-        private void dibujarEstadoCombate(Graphics2D g2, int cx, int cy, int radio) {
-            // Luchador 1 (izquierda)
-            dibujarRikishi(g2, cx - 35, cy, COLOR_L1, false);
-            g2.setFont(new Font("SansSerif", Font.BOLD, 11));
-            g2.setColor(COLOR_L1);
-            FontMetrics fm = g2.getFontMetrics();
-            g2.drawString(nombres[0], cx - 35 - fm.stringWidth(nombres[0]) / 2, cy + 45);
-
-            // Luchador 2 (derecha)
-            dibujarRikishi(g2, cx + 35, cy, COLOR_L2, true);
-            g2.setColor(COLOR_L2);
-            g2.drawString(nombres[1], cx + 35 - fm.stringWidth(nombres[1]) / 2, cy + 45);
-
-            // Indicador de último atacante
-            if (!ultimoAtacante.isEmpty()) {
-                Color colorAtk = ultimoAtacante.equals(nombres[0]) ? COLOR_L1 : COLOR_L2;
-                g2.setColor(colorAtk.brighter());
-                g2.setFont(new Font("SansSerif", Font.BOLD, 10));
-                if (ultimaExpulsion) {
-                    g2.drawString("💥", cx - 8, cy - radio + 25);
-                }
+            //Pulso de impacto al expulsar
+            if (pulso > 0) {
+                g2.setColor(new Color(1f, 0.4f, 0f, (pulso / 10.0f) * 0.35f));
+                int pr = pulso * 4;
+                g2.fillOval(cx - r - pr, cy - r - pr, (r + pr) * 2, (r + pr) * 2);
             }
+
+            //Arena con degradado
+            g2.setPaint(new GradientPaint(
+                cx - r, cy - r, new Color(220, 186, 118),
+                cx + r, cy + r, new Color(178, 142, 75)));
+            g2.fillOval(cx - r, cy - r, r * 2, r * 2);
+
+            //Líneas concéntricas sutiles
+            g2.setColor(new Color(160, 125, 65, 35));
+            for (int ri = r - 20; ri > 10; ri -= 22) {
+                g2.drawOval(cx - ri, cy - ri, ri * 2, ri * 2);
+            }
+
+            //Borde de paja (tawara)
+            g2.setColor(new Color(125, 62, 12));
+            g2.setStroke(new BasicStroke(11));
+            g2.drawOval(cx - r, cy - r, r * 2, r * 2);
+
+            //Highlight del borde
+            g2.setColor(new Color(180, 110, 45, 140));
+            g2.setStroke(new BasicStroke(4));
+            g2.drawArc(cx - r + 3, cy - r + 3, (r - 3) * 2, (r - 3) * 2, 30, 120);
+
+            //Borde dorado
+            g2.setColor(new Color(212, 170, 45, 160));
+            g2.setStroke(new BasicStroke(2));
+            g2.drawOval(cx - r - 6, cy - r - 6, (r + 6) * 2, (r + 6) * 2);
+
+            //Líneas shikiri-sen
+            g2.setColor(new Color(85, 45, 12));
+            g2.setStroke(new BasicStroke(3.5f));
+            g2.drawLine(cx - 20, cy + 8, cx - 6, cy + 8);
+            g2.drawLine(cx + 6,  cy + 8, cx + 20, cy + 8);
+            g2.setStroke(new BasicStroke(1));
         }
 
-        /**
-         * Dibuja el estado final del combate con el ganador destacado.
-         *
-         * @param g2    contexto gráfico
-         * @param cx    centro horizontal
-         * @param cy    centro vertical
-         * @param radio radio del ring
-         */
-        private void dibujarEstadoTerminado(Graphics2D g2, int cx, int cy, int radio) {
-            // Overlay semitransparente dorado
-            g2.setColor(new Color(212, 175, 55, 60));
-            g2.fill(new Ellipse2D.Double(cx - radio, cy - radio, radio * 2, radio * 2));
-
-            g2.setFont(new Font("Serif", Font.BOLD, 20));
-            g2.setColor(ACENTO);
+        //Dibuja el estado de espera con nombres y texto
+        private void pintarEspera(Graphics2D g2, int cx, int cy, int r) {
+            g2.setFont(new Font("Serif", Font.BOLD, 13));
+            g2.setColor(C_AZUL);
+            g2.drawString(nombres[0], cx - r + 10, cy - 8);
+            g2.setColor(C_ROJO);
             FontMetrics fm = g2.getFontMetrics();
-            String txt1 = "🏆 GANADOR";
-            String txt2 = nombreGanador;
-            g2.drawString(txt1, cx - fm.stringWidth(txt1) / 2, cy - 10);
-            g2.setColor(Color.WHITE);
-            g2.setFont(new Font("Serif", Font.BOLD, 17));
+            g2.drawString(nombres[1], cx + r - fm.stringWidth(nombres[1]) - 10, cy - 8);
+            g2.setColor(new Color(200, 190, 100, 170));
+            g2.setFont(new Font("Serif", Font.ITALIC, 13));
             fm = g2.getFontMetrics();
-            g2.drawString(txt2, cx - fm.stringWidth(txt2) / 2, cy + 20);
+            String esp = "Aguardando luchadores...";
+            g2.drawString(esp, cx - fm.stringWidth(esp) / 2, cy + 18);
         }
 
-        /**
-         * Dibuja la información del último kimarite en la barra inferior del panel.
-         *
-         * @param g2 contexto gráfico
-         * @param cx centro horizontal
-         * @param y  posición vertical de la barra
-         */
-        private void dibujarInfoKimarite(Graphics2D g2, int cx, int y) {
-            Color colorInfo = ultimaExpulsion ? COLOR_LOSE : new Color(100, 180, 100);
-            g2.setColor(new Color(0, 0, 0, 120));
-            g2.fillRoundRect(cx - 160, y - 16, 320, 22, 8, 8);
-            g2.setColor(colorInfo);
-            g2.setFont(new Font("Monospaced", Font.BOLD, 11));
-            String info = ultimoAtacante + " → [" + ultimoKimarite + "]"
-                + (ultimaExpulsion ? " 💥 ¡Expulsado!" : " ↩ Resiste");
+        //Dibuja los luchadores enfrentados durante el combate
+        private void pintarCombate(Graphics2D g2, int cx, int cy, int r) {
+            //Luchador izquierdo
+            if (imgLuchadores[0] != null) {
+                int iw = (int)(r * 0.65), ih = (int)(r * 0.85);
+                g2.drawImage(imgLuchadores[0], cx - iw - 10, cy - ih / 2, iw, ih, null);
+            } else {
+                pintarRikishi(g2, cx - 42, cy, C_AZUL, false);
+            }
+            g2.setFont(new Font("Serif", Font.BOLD, 11));
+            g2.setColor(C_AZUL);
             FontMetrics fm = g2.getFontMetrics();
-            g2.drawString(info, cx - fm.stringWidth(info) / 2, y);
+            g2.drawString(nombres[0], cx - 42 - fm.stringWidth(nombres[0]) / 2, cy + 52);
+
+            //Luchador derecho
+            if (imgLuchadores[1] != null) {
+                int iw = (int)(r * 0.65), ih = (int)(r * 0.85);
+                g2.drawImage(imgLuchadores[1], cx + 10, cy - ih / 2, iw, ih, null);
+            } else {
+                pintarRikishi(g2, cx + 42, cy, C_ROJO, true);
+            }
+            g2.setColor(C_ROJO);
+            fm = g2.getFontMetrics();
+            g2.drawString(nombres[1], cx + 42 - fm.stringWidth(nombres[1]) / 2, cy + 52);
         }
 
         /**
-         * Dibuja la figura de un rikishi en la posición dada.
-         *
-         * @param g2       contexto gráfico
-         * @param x        posición horizontal
-         * @param y        posición vertical
-         * @param colorFaja color del mawashi (cinturón)
-         * @param espejado si se debe mostrar espejado (para el luchador derecho)
+         * Muestra la imagen del kimarite superpuesta en el centro del ring.
+         * FIX 2: valida dimensiones antes de calcular escala para evitar
+         * división por cero que corrompía el paintComponent.
          */
-        private void dibujarRikishi(Graphics2D g2, int x, int y, Color colorFaja, boolean espejado) {
-            int dir = espejado ? -1 : 1;
-            Color piel = new Color(220, 190, 155);
+        private void pintarImagenKimarite(Graphics2D g2, int cx, int cy, int r) {
+            Image img = imgKimariteIcon.getImage();
+            //FIX 2: validar que la imagen tenga dimensiones válidas
+            int origW = imgKimariteIcon.getIconWidth();
+            int origH = imgKimariteIcon.getIconHeight();
+            if (origW <= 0 || origH <= 0) return;
 
-            // Cuerpo ovalado
+            int maxW = (int)(r * 0.85), maxH = (int)(r * 0.85);
+
+            //Overlay semitransparente para que la imagen destaque
+            g2.setColor(new Color(0, 0, 0, 85));
+            g2.fillOval(cx - (int)(r * 0.5), cy - (int)(r * 0.5),
+                        r, r);
+
+            //Escalar manteniendo proporción
+            double escala = Math.min((double) maxW / origW, (double) maxH / origH);
+            int iw = (int)(origW * escala);
+            int ih = (int)(origH * escala);
+            if (iw <= 0 || ih <= 0) return;
+
+            g2.drawImage(img, cx - iw / 2, cy - ih / 2, iw, ih, null);
+
+            //Nombre del kimarite debajo de la imagen
+            g2.setFont(new Font("Serif", Font.BOLD, 11));
+            g2.setColor(ultimaExpulsion ? C_ROJO : C_VERDE);
+            FontMetrics fm = g2.getFontMetrics();
+            g2.drawString(ultimoKimarite,
+                cx - fm.stringWidth(ultimoKimarite) / 2, cy + ih / 2 + 16);
+        }
+
+        //Pantalla final con el ganador
+        private void pintarTerminado(Graphics2D g2, int cx, int cy, int r) {
+            g2.setColor(new Color(212, 170, 45, 50));
+            g2.fill(new Ellipse2D.Double(cx - r, cy - r, r * 2.0, r * 2.0));
+            g2.setFont(new Font("Serif", Font.BOLD, 20));
+            g2.setColor(C_DORADO);
+            FontMetrics fm = g2.getFontMetrics();
+            String t1 = "GANADOR";
+            g2.drawString(t1, cx - fm.stringWidth(t1) / 2, cy - 10);
+            g2.setFont(new Font("Serif", Font.BOLD, 17));
+            g2.setColor(Color.WHITE);
+            fm = g2.getFontMetrics();
+            g2.drawString(nombreGanador,
+                cx - fm.stringWidth(nombreGanador) / 2, cy + 16);
+            g2.setFont(new Font("Serif", Font.BOLD, 30));
+            g2.setColor(new Color(212, 170, 45, 110));
+            g2.drawString("勝", cx - 14, cy - r + 38);
+        }
+
+        //Figura de rikishi dibujada como fallback si no hay imagen
+        private void pintarRikishi(Graphics2D g2, int x, int y,
+                                    Color faja, boolean miraDer) {
+            Color piel = new Color(218, 188, 148);
+            int d = miraDer ? -1 : 1;
             g2.setColor(piel);
-            g2.fillOval(x - 16, y - 10, 32, 35);
-            // Cabeza
-            g2.fillOval(x - 10, y - 28, 20, 20);
-            // Mawashi
-            g2.setColor(colorFaja);
-            g2.fillRoundRect(x - 14, y + 5, 28, 12, 4, 4);
-            // Brazos extendidos
+            g2.fillOval(x - 15, y - 12, 30, 33);
+            g2.fillOval(x - 10, y - 30, 20, 20);
+            g2.setColor(faja);
+            g2.fillRoundRect(x - 13, y + 6, 26, 12, 4, 4);
             g2.setColor(piel);
-            g2.fillOval(x + dir * 14, y - 5, 12, 8);
-            // Contorno
-            g2.setColor(colorFaja.darker());
-            g2.setStroke(new BasicStroke(1.5f));
-            g2.drawOval(x - 16, y - 10, 32, 35);
+            g2.fillOval(x + d * 14, y - 6, 12, 8);
+            g2.setColor(faja.darker());
+            g2.setStroke(new BasicStroke(1.4f));
+            g2.drawOval(x - 15, y - 12, 30, 33);
             g2.setStroke(new BasicStroke(1));
         }
     }

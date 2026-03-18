@@ -1,10 +1,10 @@
 package co.edu.udistrital.sumo.controlador;
 
+
+import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
 import co.edu.udistrital.sumo.modelo.Dohyo;
 import co.edu.udistrital.sumo.modelo.Kimarite;
 import co.edu.udistrital.sumo.modelo.Rikishi;
-import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;

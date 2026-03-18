@@ -1,70 +1,73 @@
-package sumo.controlador;
+package co.edu.udistrital.sumo.controlador;
 
-import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
+import co.edu.udistrital.sumo.modelo.ConexionServidor;
 import co.edu.udistrital.sumo.modelo.Dohyo;
+import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
 import co.edu.udistrital.sumo.vista.servidor.VistaServidor;
+
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Controlador del lado del servidor en la arquitectura MVC del Combate de Sumo.
- * <p>
- * Gestiona el ciclo de vida completo del servidor:
- * <ol>
- *   <li>Inicia el {@link ServerSocket} en el puerto configurado.</li>
- *   <li>Acepta exactamente dos conexiones de clientes (luchadores).</li>
- *   <li>Crea un {@link HiloLuchador} por cada cliente.</li>
- *   <li>Coordina la visualización del combate a través de la {@link VistaServidor}.</li>
- *   <li>Implementa {@link ICombateObservador} para recibir eventos del {@link Dohyo}.</li>
- * </ol>
- * </p>
  *
- * <p>
- * Principio de Inversión de Dependencias (DIP): depende de la abstracción
- * {@link ICombateObservador}, no de una implementación concreta de observador.
- * </p>
+ * Propósito: Gestionar el ciclo de vida completo del servidor:
+ * 1. Iniciar el {@link ConexionServidor} en el puerto configurado.
+ * 2. Aceptar exactamente dos conexiones de clientes (luchadores).
+ * 3. Crear un {@link HiloLuchador} por cada cliente, pasándole el
+ *    {@link ControladorDohyo} compartido.
+ * 4. Coordinar la visualización del combate a través de {@link VistaServidor}.
+ * 5. Implementar {@link ICombateObservador} para recibir eventos del combate.
+ * Se comunica con: {@link VistaServidor} (vista), {@link ConexionServidor}
+ * (modelo - socket servidor), {@link ControladorDohyo} (lógica del combate),
+ * {@link HiloLuchador} (hilos de atención a clientes).
+ * Principio SOLID:
+ * S — única responsabilidad: gestionar el ciclo de vida del servidor.
+ * D — depende de {@link ICombateObservador} (abstracción).
+ *
+ * PROHIBIDO en esta clase: ServerSocket directo, lógica de combate, SQL.
  *
  * @author Grupo Taller 3
- * @version 1.0
- * @see Dohyo
+ * @version 2.0
+ * @see ConexionServidor
+ * @see ControladorDohyo
  * @see HiloLuchador
- * @see VistaServidor
  */
 public class ControladorServidor implements ICombateObservador {
 
-    /** Puerto en el que el servidor escucha conexiones entrantes. */
+    //Puerto en el que escucha el servidor
     private static final int PUERTO = 9999;
 
-    /** Número máximo de luchadores (conexiones) que acepta el servidor. */
-    private static final int MAX_LUCHADORES = 2;
-
-    /** Vista del servidor que muestra el desarrollo del combate. */
+    //Vista del servidor que muestra el desarrollo del combate
     private final VistaServidor vista;
 
-    /** El dohyō compartido donde se realiza el combate. */
+    //Conexión de red del servidor (modelo - maneja el ServerSocket)
+    private final ConexionServidor conexionServidor;
+
+    //Estado del ring compartido entre los hilos
     private final Dohyo dohyo;
 
-    /** Contador atómico de luchadores conectados. */
-    private final AtomicInteger luchadoresConectados;
+    //Controlador del combate: sincronización y lógica de negocio
+    //Una sola instancia compartida entre AMBOS HiloLuchador
+    private final ControladorDohyo controladorDohyo;
 
     /**
-     * Construye el controlador del servidor, inicializa el dohyō y la vista,
-     * y se registra como observador del dohyō.
+     * Construye el controlador del servidor, inicializa todas las dependencias
+     * y registra este controlador como observador del combate.
      */
     public ControladorServidor() {
-        this.dohyo = new Dohyo();
-        this.vista = new VistaServidor();
-        this.luchadoresConectados = new AtomicInteger(0);
-        this.dohyo.agregarObservador(this);
+        this.dohyo             = new Dohyo();
+        this.controladorDohyo  = new ControladorDohyo(dohyo);
+        this.conexionServidor  = new ConexionServidor(PUERTO);
+        this.vista             = new VistaServidor();
+        //Registrar como observador para recibir eventos del combate
+        this.controladorDohyo.agregarObservador(this);
         this.vista.setVisible(true);
     }
 
     /**
-     * Método estático de entrada para iniciar el servidor.
-     * Crea el controlador (que levanta la vista) y arranca el socket.
-     * Invocado desde {@link sumo.launcher.LauncherServidor}.
+     * Método estático de entrada invocado desde {@link LauncherServidor}.
+     * Crea el controlador y arranca el servidor en un hilo de fondo.
      */
     public static void iniciar() {
         ControladorServidor servidor = new ControladorServidor();
@@ -74,96 +77,77 @@ public class ControladorServidor implements ICombateObservador {
     }
 
     /**
-     * Inicia el {@link ServerSocket}, acepta exactamente dos conexiones y lanza
-     * un {@link HiloLuchador} por cada una. El servidor se cierra después del combate.
+     * Abre el servidor, acepta exactamente dos conexiones y lanza un
+     * {@link HiloLuchador} por cada una. Pasa la misma instancia de
+     * {@link ControladorDohyo} a ambos hilos para garantizar la sincronización.
      */
     public void iniciarServidor() {
-        actualizarVista("🥋 Servidor de Sumo iniciado en el puerto " + PUERTO);
-        actualizarVista("⏳ Esperando a los dos luchadores...");
+        actualizarVista("Servidor de Sumo iniciado en el puerto " + PUERTO);
+        actualizarVista("Esperando a los dos luchadores...");
 
-        try (ServerSocket serverSocket = new ServerSocket(PUERTO)) {
-            for (int i = 0; i < MAX_LUCHADORES; i++) {
-                Socket socketCliente = serverSocket.accept();
-                int indice = luchadoresConectados.getAndIncrement();
-                actualizarVista("📡 Luchador " + (indice + 1) + " conectado desde "
-                        + socketCliente.getInetAddress().getHostAddress());
+        try {
+            conexionServidor.iniciar();
 
-                HiloLuchador hilo = new HiloLuchador(socketCliente, dohyo, indice);
+            for (int i = 0; i < conexionServidor.getMaxLuchadores(); i++) {
+                Socket socketCliente = conexionServidor.aceptarConexion();
+                actualizarVista("Luchador " + (i + 1) + " conectado desde "
+                    + socketCliente.getInetAddress().getHostAddress());
+
+                //La misma instancia de controladorDohyo para ambos hilos — obligatorio
+                HiloLuchador hilo = new HiloLuchador(
+                    socketCliente, controladorDohyo, i);
                 hilo.start();
             }
+
+            //Cerrar el ServerSocket: ya no necesitamos más conexiones
+            conexionServidor.cerrar();
+
         } catch (IOException e) {
-            actualizarVista("❌ Error en el servidor: " + e.getMessage());
+            actualizarVista("Error en el servidor: " + e.getMessage());
         }
     }
 
-    // ─── Implementación de ICombateObservador ──────────────────────────────────
+    // ─── Implementación de ICombateObservador ─────────────────────────────────
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Notifica a la vista la llegada de un nuevo luchador al dohyō.
-     * Se ejecuta desde un hilo de fondo; actualiza la UI en el EDT.
-     * </p>
-     */
+    //Notifica a la vista la llegada de un luchador al dohyō
     @Override
     public void onLuchadorLlego(String nombre, double peso, int indice) {
-        String msg = String.format("🎌 Luchador %d llegó al dohyō: %s (%.1f kg)",
-                indice + 1, nombre, peso);
+        String msg = String.format("Luchador %d llego al dohyo: %s (%.1f kg)",
+            indice + 1, nombre, peso);
         actualizarVista(msg);
-        javax.swing.SwingUtilities.invokeLater(() ->
-            vista.mostrarLuchadorEnDohyo(nombre, peso, indice));
+        javax.swing.SwingUtilities.invokeLater(
+            () -> vista.mostrarLuchadorEnDohyo(nombre, peso, indice));
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Notifica a la vista que ambos luchadores están listos y el combate empieza.
-     * </p>
-     */
+    //Notifica a la vista que el combate comenzó
     @Override
-    public void onCombateIniciado(String nombreLuchador1, String nombreLuchador2) {
-        String msg = "⚔ ¡COMBATE INICIADO! " + nombreLuchador1 + " vs " + nombreLuchador2;
-        actualizarVista(msg);
-        javax.swing.SwingUtilities.invokeLater(() ->
-            vista.mostrarInicioCombate(nombreLuchador1, nombreLuchador2));
+    public void onCombateIniciado(String nombreL1, String nombreL2) {
+        actualizarVista("¡COMBATE INICIADO! " + nombreL1 + " vs " + nombreL2);
+        javax.swing.SwingUtilities.invokeLater(
+            () -> vista.mostrarInicioCombate(nombreL1, nombreL2));
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Notifica a la vista el resultado de cada kimarite ejecutado.
-     * </p>
-     */
+    //Notifica a la vista el resultado de cada kimarite ejecutado
     @Override
-    public void onKimariteEjecutado(String nombreLuchador, String nombreKimarite, boolean expulsado) {
-        String resultado = expulsado ? "💥 ¡EXPULSADO!" : "↩ El oponente resiste";
-        String msg = String.format("  ▶ %s usa [%s] → %s", nombreLuchador, nombreKimarite, resultado);
-        actualizarVista(msg);
-        javax.swing.SwingUtilities.invokeLater(() ->
-            vista.mostrarKimarite(nombreLuchador, nombreKimarite, expulsado));
+    public void onKimariteEjecutado(String nombreLuchador,
+                                     String nombreKimarite,
+                                     boolean expulsado) {
+        String res = expulsado ? "¡EXPULSADO!" : "El oponente resiste";
+        actualizarVista(nombreLuchador + " usa [" + nombreKimarite + "] -> " + res);
+        javax.swing.SwingUtilities.invokeLater(
+            () -> vista.mostrarKimarite(nombreLuchador, nombreKimarite, expulsado));
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>
-     * Notifica a la vista el ganador del combate con sus victorias acumuladas.
-     * </p>
-     */
+    //Notifica a la vista el ganador del combate
     @Override
-    public void onCombateTerminado(String nombreGanador, int victoriasGanador) {
-        String msg = String.format(
-            "🏆 ¡COMBATE TERMINADO! Ganador: %s | Victorias: %d",
-            nombreGanador, victoriasGanador);
-        actualizarVista(msg);
-        javax.swing.SwingUtilities.invokeLater(() ->
-            vista.mostrarGanador(nombreGanador, victoriasGanador));
+    public void onCombateTerminado(String nombreGanador, int victorias) {
+        actualizarVista("¡COMBATE TERMINADO! Ganador: "
+            + nombreGanador + " | Victorias: " + victorias);
+        javax.swing.SwingUtilities.invokeLater(
+            () -> vista.mostrarGanador(nombreGanador, victorias));
     }
 
-    /**
-     * Actualiza el área de log de la vista de forma segura para el EDT.
-     *
-     * @param mensaje texto a agregar al log del combate
-     */
+    //Actualiza el log de la vista de forma segura para el EDT
     private void actualizarVista(String mensaje) {
         javax.swing.SwingUtilities.invokeLater(() -> vista.mostrarMensaje(mensaje));
     }
