@@ -1,7 +1,7 @@
 package co.edu.udistrital.sumo.controlador.cliente;
 
 import co.edu.udistrital.sumo.modelo.cliente.CargadorPropiedades;
-import co.edu.udistrital.sumo.modelo.ConexionCliente;
+import co.edu.udistrital.sumo.modelo.cliente.ConexionCliente;
 import co.edu.udistrital.sumo.vista.cliente.VistaCliente;
 
 import java.io.IOException;

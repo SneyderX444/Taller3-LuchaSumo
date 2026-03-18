@@ -1,6 +1,6 @@
 package co.edu.udistrital.sumo.modelo.interfaces;
 
-import co.edu.udistrital.sumo.modelo.Rikishi;
+import co.edu.udistrital.sumo.modelo.cliente.Rikishi;
 
 /**
  * Contrato que define el comportamiento del árbitro del combate de sumo.

@@ -1,8 +1,8 @@
 package co.edu.udistrital.sumo.controlador.servidor;
 
-import co.edu.udistrital.sumo.modelo.ConexionServidor;
-import co.edu.udistrital.sumo.modelo.Dohyo;
 import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
+import co.edu.udistrital.sumo.modelo.servidor.ConexionServidor;
+import co.edu.udistrital.sumo.modelo.servidor.Dohyo;
 import co.edu.udistrital.sumo.vista.servidor.VistaServidor;
 
 import java.io.IOException;

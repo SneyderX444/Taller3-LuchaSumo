@@ -1,7 +1,6 @@
 package co.edu.udistrital.sumo.modelo.servidor;
 
-import java.util.ArrayList;
-import java.util.List;
+import co.edu.udistrital.sumo.modelo.cliente.Rikishi;
 
 /**
  * Representa el ring sagrado del sumo (dohyō).

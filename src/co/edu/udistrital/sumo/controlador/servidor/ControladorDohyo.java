@@ -2,9 +2,9 @@ package co.edu.udistrital.sumo.controlador.servidor;
 
 
 import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
-import co.edu.udistrital.sumo.modelo.Dohyo;
-import co.edu.udistrital.sumo.modelo.Kimarite;
-import co.edu.udistrital.sumo.modelo.Rikishi;
+import co.edu.udistrital.sumo.modelo.cliente.Kimarite;
+import co.edu.udistrital.sumo.modelo.cliente.Rikishi;
+import co.edu.udistrital.sumo.modelo.servidor.Dohyo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -45,9 +45,9 @@ public class ControladorDohyo {
 
     /**
      * Probabilidad de expulsión del oponente por cada kimarite (sobre 100).
-     * 20% — la mayoría de las veces no expulsa, pero en algún momento sí.
+     * 15% — la mayoría de las veces no expulsa, pero en algún momento sí.
      */
-    private static final int PROBABILIDAD_EXPULSION = 20;
+    private static final int PROBABILIDAD_EXPULSION = 15;
 
     //Estado del ring compartido entre los dos hilos
     private final Dohyo dohyo;

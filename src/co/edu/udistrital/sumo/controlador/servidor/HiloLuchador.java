@@ -1,7 +1,7 @@
 package co.edu.udistrital.sumo.controlador.servidor;
 
-import co.edu.udistrital.sumo.modelo.Kimarite;
-import co.edu.udistrital.sumo.modelo.Rikishi;
+import co.edu.udistrital.sumo.modelo.cliente.Kimarite;
+import co.edu.udistrital.sumo.modelo.cliente.Rikishi;
 
 import java.io.BufferedReader;
 import java.io.IOException;
