@@ -1,6 +1,6 @@
 package co.edu.udistrital.sumo.controlador.cliente;
 
-import co.edu.udistrital.sumo.modelo.CargadorPropiedades;
+import co.edu.udistrital.sumo.modelo.cliente.CargadorPropiedades;
 import co.edu.udistrital.sumo.modelo.ConexionCliente;
 import co.edu.udistrital.sumo.vista.cliente.VistaCliente;
 

@@ -1,4 +1,4 @@
-package co.edu.udistrital.sumo.modelo;
+package co.edu.udistrital.sumo.modelo.servidor;
 
 import java.util.ArrayList;
 import java.util.List;

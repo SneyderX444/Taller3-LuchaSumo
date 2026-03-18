@@ -1,4 +1,4 @@
-package co.edu.udistrital.sumo.modelo;
+package co.edu.udistrital.sumo.modelo.cliente;
 
 import java.io.BufferedReader;
 import java.io.IOException;

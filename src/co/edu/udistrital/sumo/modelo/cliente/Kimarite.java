@@ -1,4 +1,4 @@
-package co.edu.udistrital.sumo.modelo;
+package co.edu.udistrital.sumo.modelo.cliente;
 
 /**
  * Representa una técnica ganadora del sumo japonés (kimarite).
