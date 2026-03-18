@@ -1,4 +1,4 @@
-package sumo.modelo.interfaces;
+package co.edu.udistrital.sumo.modelo.interfaces;
 
 /**
  * Interfaz del patrón Observer para los eventos del combate de sumo.

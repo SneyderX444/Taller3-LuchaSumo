@@ -1,8 +1,8 @@
 package co.edu.udistrital.sumo.controlador;
 
-import sumo.modelo.Dohyo;
-import sumo.modelo.Kimarite;
-import sumo.modelo.Rikishi;
+import co.edu.udistrital.sumo.modelo.Dohyo;
+import co.edu.udistrital.sumo.modelo.Kimarite;
+import co.edu.udistrital.sumo.modelo.Rikishi;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;

@@ -1,8 +1,8 @@
 package sumo.controlador;
 
-import sumo.modelo.interfaces.ICombateObservador;
-import sumo.modelo.Dohyo;
-import sumo.vista.servidor.VistaServidor;
+import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
+import co.edu.udistrital.sumo.modelo.Dohyo;
+import co.edu.udistrital.sumo.vista.servidor.VistaServidor;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;

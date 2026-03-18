@@ -1,4 +1,4 @@
-package sumo.vista.cliente;
+package co.edu.udistrital.sumo.vista.cliente;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

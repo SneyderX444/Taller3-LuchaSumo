@@ -1,13 +1,13 @@
-package sumo.modelo.interfaces;
+package co.edu.udistrital.sumo.modelo.interfaces;
 
-import sumo.modelo.Rikishi;
+import co.edu.udistrital.sumo.modelo.Rikishi;
 
 /**
  * Contrato que define el comportamiento del árbitro y del dohyō (ring de sumo).
  * <p>
  * Esta interfaz aplica el principio de Inversión de Dependencias (DIP) de SOLID,
  * permitiendo que los controladores dependan de esta abstracción en lugar de
- * depender de la implementación concreta {@link sumo.modelo.Dohyo}.
+ * depender de la implementación concreta {@link co.edu.udistrital.sumo.modelo.Dohyo}.
  * </p>
  *
  * @author Grupo Taller 3

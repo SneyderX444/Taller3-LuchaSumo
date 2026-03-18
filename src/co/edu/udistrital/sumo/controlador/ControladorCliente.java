@@ -1,9 +1,10 @@
 package co.edu.udistrital.sumo.controlador;
 
+import co.edu.udistrital.sumo.modelo.CargadorPropiedades;
 import co.edu.udistrital.sumo.controlador.acciones.AccionCargarKimarites;
 import co.edu.udistrital.sumo.controlador.acciones.AccionConectar;
 import sumo.controlador.util.CargadorPropiedades;
-import sumo.vista.cliente.VistaCliente;
+import co.edu.udistrital.sumo.vista.cliente.VistaCliente;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;

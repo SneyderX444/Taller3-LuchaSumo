@@ -9,9 +9,9 @@ import co.edu.udistrital.sumo.controlador.interfaces.*;
  *
  * @author Grupo Taller 3
  * @version 1.0
- * @see sumo.modelo.interfaces.ICombateObservador
+ * @see co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador
  */
 @Deprecated
-public interface ICombateObservador extends sumo.modelo.interfaces.ICombateObservador {
+public interface ICombateObservador extends co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador {
     // Redirige a sumo.modelo.interfaces.ICombateObservador
 }
