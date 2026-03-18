@@ -1,4 +1,4 @@
-package co.edu.udistrital.sumo.controlador;
+package co.edu.udistrital.sumo.controlador.cliente;
 
 import co.edu.udistrital.sumo.modelo.CargadorPropiedades;
 import co.edu.udistrital.sumo.modelo.ConexionCliente;

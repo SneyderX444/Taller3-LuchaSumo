@@ -1,4 +1,4 @@
-package co.edu.udistrital.sumo.controlador;
+package co.edu.udistrital.sumo.controlador.servidor;
 
 import javax.swing.SwingUtilities;
 

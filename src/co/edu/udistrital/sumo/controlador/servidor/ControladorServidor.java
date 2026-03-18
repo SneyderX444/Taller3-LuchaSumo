@@ -1,4 +1,4 @@
-package co.edu.udistrital.sumo.controlador;
+package co.edu.udistrital.sumo.controlador.servidor;
 
 import co.edu.udistrital.sumo.modelo.ConexionServidor;
 import co.edu.udistrital.sumo.modelo.Dohyo;

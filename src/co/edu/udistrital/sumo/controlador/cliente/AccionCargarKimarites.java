@@ -1,24 +1,24 @@
-package co.edu.udistrital.sumo.controlador;
+package co.edu.udistrital.sumo.controlador.cliente;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 /**
- * Acción desencadenada al presionar "Conectar al Servidor" en la vista del cliente.
+ * Acción desencadenada al presionar "Cargar Kimarites" en la vista del cliente.
  *
- * Propósito: Desacoplar el evento del botón de la lógica de conexión,
+ * Propósito: Desacoplar el evento del botón de la lógica de negocio,
  * delegando completamente al {@link ControladorCliente}.
  * Cumple la separación evento/listener/performed exigida por el taller (regla r).
  * Se comunica con: {@link ControladorCliente} (único receptor de la acción).
  * Principio SOLID:
- * S — única responsabilidad: delegar la conexión al servidor al controlador.
+ * S — única responsabilidad: delegar la carga de kimarites al controlador.
  *
  * @author Grupo Taller 3
  * @version 2.0
  * @see ControladorCliente
- * @see AccionCargarKimarites
+ * @see AccionConectar
  */
-public class AccionConectar implements ActionListener {
+public class AccionCargarKimarites implements ActionListener {
 
     //Controlador del cliente al que se delega la acción
     private final ControladorCliente controlador;
@@ -26,20 +26,20 @@ public class AccionConectar implements ActionListener {
     /**
      * Construye la acción con referencia al controlador del cliente.
      *
-     * @param controlador controlador que ejecutará la lógica de conexión
+     * @param controlador controlador que gestionará la carga del archivo
      */
-    public AccionConectar(ControladorCliente controlador) {
+    public AccionCargarKimarites(ControladorCliente controlador) {
         this.controlador = controlador;
     }
 
     /**
      * Invocado por Swing cuando el usuario presiona el botón.
-     * Delega al controlador para validar datos e iniciar la conexión al servidor.
+     * Delega al controlador para obtener la ruta del archivo y cargar los kimarites.
      *
      * @param e evento de acción generado por el botón
      */
     @Override
     public void actionPerformed(ActionEvent e) {
-        controlador.conectarAlServidor();
+        controlador.cargarKimarites();
     }
 }
