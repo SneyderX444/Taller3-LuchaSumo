@@ -1,4 +1,6 @@
-package sumo.controlador.interfaces;
+package co.edu.udistrital.sumo.controlador;
+
+import co.edu.udistrital.sumo.controlador.interfaces.*;
 
 /**
  * @deprecated Esta interfaz fue reubicada en {@link sumo.modelo.interfaces.ICombateObservador}

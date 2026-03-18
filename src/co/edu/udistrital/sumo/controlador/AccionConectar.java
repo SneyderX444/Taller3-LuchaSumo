@@ -1,6 +1,6 @@
-package sumo.controlador.acciones;
+package co.edu.udistrital.sumo.controlador.acciones;
 
-import sumo.controlador.ControladorCliente;
+import co.edu.udistrital.sumo.controlador.ControladorCliente;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 

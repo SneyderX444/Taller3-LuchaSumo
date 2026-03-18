@@ -1,5 +1,6 @@
-package sumo.controlador.util;
+package co.edu.udistrital.sumo.controlador;
 
+import sumo.controlador.util.*;
 import javax.swing.JFileChooser;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.File;

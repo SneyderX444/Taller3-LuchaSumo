@@ -1,4 +1,4 @@
-package sumo.controlador;
+package co.edu.udistrital.sumo.controlador;
 
 import sumo.modelo.Dohyo;
 import sumo.modelo.Kimarite;

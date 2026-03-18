@@ -1,6 +1,7 @@
-package sumo.launcher;
+package co.edu.udistrital.sumo.controlador;
 
-import sumo.controlador.ControladorCliente;
+import sumo.launcher.*;
+import co.edu.udistrital.sumo.controlador.ControladorCliente;
 import javax.swing.SwingUtilities;
 
 /**

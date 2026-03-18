@@ -1,7 +1,7 @@
-package sumo.controlador;
+package co.edu.udistrital.sumo.controlador;
 
-import sumo.controlador.acciones.AccionCargarKimarites;
-import sumo.controlador.acciones.AccionConectar;
+import co.edu.udistrital.sumo.controlador.acciones.AccionCargarKimarites;
+import co.edu.udistrital.sumo.controlador.acciones.AccionConectar;
 import sumo.controlador.util.CargadorPropiedades;
 import sumo.vista.cliente.VistaCliente;
 import java.io.BufferedReader;
