@@ -3,43 +3,36 @@ package co.edu.udistrital.sumo.modelo.servidor;
 import co.edu.udistrital.sumo.modelo.cliente.Rikishi;
 
 /**
- * Representa el ring sagrado del sumo (dohyō).
+ * Clase que representa el dohyo (ring de pelea del sumo).
  *
- * Propósito: Almacenar ÚNICAMENTE el estado del combate y los luchadores.
- * Es un POJO puro — no contiene lógica de negocio, sincronización ni hilos.
- * La coordinación del combate es responsabilidad de
- * {@link sumo.controlador.ControladorCombate}.
- * Se comunica con: {@link sumo.controlador.ControladorCombate} (consumidor del estado).
- * Principio SOLID:
- * S — única responsabilidad: representar el estado del ring.
+ * Aquí básicamente se guarda todo el estado del combate:
+ * quiénes son los luchadores, de quién es el turno,
+ * si ya terminó la pelea y quién ganó.
  *
- * PROHIBIDO en esta clase: synchronized, wait, notify, Random, lógica de turnos.
- *
- * @author Grupo Taller 3
- * @version 2.0
- * @see Rikishi
- * @see Kimarite
+ * IMPORTANTE:
+ * Esta clase NO tiene lógica del combate, solo guarda datos.
+ * El controlador es el que se encarga de toda la lógica.
  */
 public class Dohyo {
 
-    //Arreglo con los dos luchadores que participan en el combate (índices 0 y 1)
+    // arreglo donde se guardan los dos luchadores del combate (posiciones 0 y 1)
     private final Rikishi[] luchadores;
 
-    //Índice del luchador que tiene el turno actual (0 o 1)
+    // indica de quién es el turno actualmente (0 o 1)
     private int turnoActual;
 
-    //Indica si el combate ha finalizado
-    //volatile garantiza visibilidad entre hilos sin necesidad de synchronized
+    // indica si el combate ya terminó
+    // volatile se usa para que los hilos vean el cambio inmediatamente
     private volatile boolean combateTerminado;
 
-    //Luchador ganador del combate, null si aún no ha terminado
+    // guarda el luchador ganador (puede ser null si aún no termina)
     private Rikishi ganador;
 
-    //Bandera para que el inicio del combate solo se anuncie una vez
+    // bandera para saber si ya se anunció el inicio del combate
     private boolean combateAnunciado;
 
     /**
-     * Construye un nuevo Dohyō con estado inicial limpio.
+     * Constructor que inicializa el estado del dohyo.
      */
     public Dohyo() {
         this.luchadores       = new Rikishi[2];
@@ -49,59 +42,58 @@ public class Dohyo {
         this.ganador          = null;
     }
 
-    //Registra un luchador en el slot indicado (0 o 1)
+    // guarda un luchador en la posición indicada (0 o 1)
     public void setLuchador(Rikishi rikishi, int indice) {
         luchadores[indice] = rikishi;
     }
 
-    //Retorna el luchador en el índice especificado
+    // devuelve el luchador en la posición indicada
     public Rikishi getLuchador(int indice) {
         return luchadores[indice];
     }
 
-    //Retorna true si ambos luchadores ya están registrados en el dohyō
+    // verifica si ya hay dos luchadores listos en el dohyo
     public boolean ambosLuchadoresPresentes() {
         return luchadores[0] != null && luchadores[1] != null;
     }
 
-    //Retorna el índice del luchador que tiene el turno actual
+    // devuelve de quién es el turno actual
     public int getTurnoActual() {
         return turnoActual;
     }
 
-    //Establece el índice del luchador que tiene el turno
+    // cambia el turno al luchador indicado
     public void setTurnoActual(int turnoActual) {
         this.turnoActual = turnoActual;
     }
 
-    //Retorna true si el combate ha finalizado
+    // indica si el combate ya terminó
     public boolean isCombateTerminado() {
         return combateTerminado;
     }
 
-    //Marca el combate como terminado
+    // marca si el combate terminó o no
     public void setCombateTerminado(boolean combateTerminado) {
         this.combateTerminado = combateTerminado;
     }
 
-    //Retorna el luchador ganador, o null si el combate no ha terminado
+    // devuelve el ganador del combate
     public Rikishi getGanador() {
         return ganador;
     }
 
-    //Establece el luchador ganador del combate
+    // asigna el ganador del combate
     public void setGanador(Rikishi ganador) {
         this.ganador = ganador;
     }
 
-    //Retorna true si el inicio del combate ya fue anunciado
+    // indica si ya se anunció el inicio del combate
     public boolean isCombateAnunciado() {
         return combateAnunciado;
     }
 
-    //Marca el combate como anunciado para evitar anunciarlo más de una vez
+    // marca que el combate ya fue anunciado
     public void setCombateAnunciado(boolean combateAnunciado) {
         this.combateAnunciado = combateAnunciado;
     }
 }
-

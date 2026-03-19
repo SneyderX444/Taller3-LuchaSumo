@@ -5,73 +5,64 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 /**
- * Gestiona la conexión del servidor de sumo vía sockets.
+ * Clase encargada de manejar la conexión del servidor usando sockets.
  *
- * Propósito: Abrir el {@link ServerSocket} en el puerto configurado y
- * aceptar las conexiones entrantes de los clientes (luchadores), retornando
- * el {@link Socket} de cada uno para que el controlador lo procese.
- * Reside en el modelo porque es una conexión de red, igual que
- * {@code ConexionBD} gestiona la conexión a la base de datos.
- * Se comunica con: {@link co.edu.udistrital.sumo.controlador.ControladorServidor}
- * (único consumidor de esta conexión).
- * Principio SOLID:
- * S — única responsabilidad: gestionar el ServerSocket y aceptar conexiones.
+ * Aquí básicamente se abre el puerto, se esperan las conexiones
+ * de los clientes (luchadores) y se devuelven los sockets para que
+ * el controlador los use.
  *
- * PROHIBIDO en esta clase: lógica de combate, hilos, Swing, objetos del modelo
- * distintos a esta misma conexión.
- *
- * @author Grupo Taller 3
- * @version 1.0
+ * IMPORTANTE:
+ * Esta clase solo maneja la conexión, no tiene nada de lógica del combate.
  */
 public class ConexionServidor {
 
-    //Número máximo de luchadores (conexiones) que acepta el servidor
+    // número máximo de luchadores que se pueden conectar (solo 2)
     private static final int MAX_LUCHADORES = 2;
 
-    //Puerto en el que el servidor escucha conexiones entrantes
+    // puerto donde el servidor va a escuchar las conexiones
     private final int puerto;
 
-    //Socket del servidor — se abre en iniciar() y se cierra en cerrar()
+    // socket principal del servidor (se abre en iniciar y se cierra en cerrar)
     private ServerSocket serverSocket;
 
     /**
-     * Construye la conexión del servidor en el puerto indicado.
-     * No abre el socket hasta que se llame a {@link #iniciar()}.
+     * Constructor que recibe el puerto donde va a trabajar el servidor.
+     * Ojo: aquí no se abre el socket todavía.
      *
-     * @param puerto puerto en el que escuchará el servidor
+     * @param puerto puerto en el que el servidor va a escuchar
      */
     public ConexionServidor(int puerto) {
         this.puerto = puerto;
     }
 
     /**
-     * Abre el {@link ServerSocket} en el puerto configurado.
-     * Debe llamarse antes de {@link #aceptarConexion()}.
+     * Abre el ServerSocket en el puerto configurado.
+     * Este método se debe llamar antes de aceptar conexiones.
      *
-     * @throws IOException si el puerto está ocupado o hay error de red
+     * @throws IOException si hay error (por ejemplo, el puerto está ocupado)
      */
     public void iniciar() throws IOException {
         serverSocket = new ServerSocket(puerto);
     }
 
     /**
-     * Bloquea el hilo actual hasta que un cliente se conecte y retorna
-     * el {@link Socket} de esa conexión.
-     * El controlador llama a este método dos veces para obtener los
-     * dos sockets de los luchadores.
+     * Espera (bloquea el hilo) hasta que un cliente se conecte.
+     * Cuando alguien se conecta, devuelve su socket.
      *
-     * @return socket del cliente conectado
-     * @throws IOException si hay error al aceptar la conexión
+     * El controlador usa este método para recibir los dos luchadores.
+     *
+     * @return socket del cliente que se conectó
+     * @throws IOException si ocurre un error en la conexión
      */
     public Socket aceptarConexion() throws IOException {
         return serverSocket.accept();
     }
 
     /**
-     * Cierra el {@link ServerSocket} de forma segura.
-     * Debe llamarse cuando el servidor ya no necesite aceptar conexiones.
+     * Cierra el ServerSocket de forma segura.
+     * Se usa cuando el servidor ya terminó su trabajo.
      *
-     * @throws IOException si hay error al cerrar
+     * @throws IOException si ocurre un error al cerrar
      */
     public void cerrar() throws IOException {
         if (serverSocket != null && !serverSocket.isClosed()) {
@@ -79,17 +70,17 @@ public class ConexionServidor {
         }
     }
 
-    //Retorna el número máximo de luchadores que acepta el servidor
+    // devuelve el número máximo de luchadores permitidos
     public int getMaxLuchadores() {
         return MAX_LUCHADORES;
     }
 
-    //Retorna el puerto configurado para el servidor
+    // devuelve el puerto en el que está configurado el servidor
     public int getPuerto() {
         return puerto;
     }
 
-    //Retorna true si el ServerSocket está abierto y listo para aceptar conexiones
+    // indica si el servidor está abierto y listo para recibir conexiones
     public boolean isAbierto() {
         return serverSocket != null && !serverSocket.isClosed();
     }

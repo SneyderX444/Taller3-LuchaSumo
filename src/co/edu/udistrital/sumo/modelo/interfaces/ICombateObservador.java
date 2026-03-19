@@ -1,41 +1,27 @@
 package co.edu.udistrital.sumo.modelo.interfaces;
 
 /**
- * Interfaz del patrón Observer para los eventos del combate de sumo.
+ * Interfaz que maneja los eventos que ocurren durante el combate.
  *
- * Propósito: Definir el contrato de notificación de eventos del combate.
- * {@link co.edu.udistrital.sumo.controlador.ControladorDohyo} notifica a todos
- * los objetos que implementen esta interfaz cuando ocurre un evento relevante,
- * permitiendo que {@link co.edu.udistrital.sumo.controlador.ControladorServidor}
- * actualice la vista sin que el controlador del combate conozca la vista.
- * Se comunica con: {@link co.edu.udistrital.sumo.controlador.ControladorDohyo}
- * (emisor) y {@link co.edu.udistrital.sumo.controlador.ControladorServidor}
- * (implementador).
- * Principio SOLID:
- * D — las capas dependen de esta abstracción, no de implementaciones concretas.
- * I — interfaz específica para eventos del combate.
+ * Se usa para notificar cuando pasa algo importante,
+ * como la llegada de luchadores o el final del combate.
  *
- * IMPORTANTE: Las implementaciones deben actualizar la UI usando
- * {@code SwingUtilities.invokeLater()} para respetar el EDT de Swing.
- *
- * @author Grupo Taller 3
- * @version 1.0
- * @see co.edu.udistrital.sumo.controlador.ControladorDohyo
- * @see co.edu.udistrital.sumo.controlador.ControladorServidor
+ * Esto permite que el controlador no dependa directamente de la vista.
  */
 public interface ICombateObservador {
 
     /**
-     * Invocado cuando un luchador llega y sube al dohyō.
+     * Se ejecuta cuando un luchador llega al dohyo.
      *
-     * @param nombre nombre del luchador que llegó
-     * @param peso   peso del luchador en kg
-     * @param indice posición en el dohyō (0 = primero, 1 = segundo)
+     * @param nombre nombre del luchador
+     * @param peso peso del luchador
+     * @param indice posición en el dohyo (0 = primero, 1 = segundo)
      */
     void onLuchadorLlego(String nombre, double peso, int indice);
 
     /**
-     * Invocado cuando ambos luchadores están en el dohyō y el combate comienza.
+     * Se ejecuta cuando ya están los dos luchadores
+     * y el combate comienza.
      *
      * @param nombreLuchador1 nombre del primer luchador
      * @param nombreLuchador2 nombre del segundo luchador
@@ -43,21 +29,22 @@ public interface ICombateObservador {
     void onCombateIniciado(String nombreLuchador1, String nombreLuchador2);
 
     /**
-     * Invocado cuando un luchador ejecuta un kimarite durante su turno.
+     * Se ejecuta cuando un luchador realiza una técnica (kimarite).
      *
      * @param nombreLuchador nombre del luchador que atacó
-     * @param nombreKimarite nombre de la técnica ejecutada
-     * @param expulsado      true si el oponente fue expulsado del dohyō
+     * @param nombreKimarite nombre de la técnica usada
+     * @param expulsado indica si el oponente salió del dohyo
      */
     void onKimariteEjecutado(String nombreLuchador,
                               String nombreKimarite,
                               boolean expulsado);
 
     /**
-     * Invocado cuando el combate finaliza y hay un ganador.
+     * Se ejecuta cuando el combate termina
+     * y ya hay un ganador.
      *
-     * @param nombreGanador    nombre del luchador ganador
-     * @param victoriasGanador número total de victorias del ganador
+     * @param nombreGanador nombre del luchador ganador
+     * @param victoriasGanador número de victorias acumuladas
      */
     void onCombateTerminado(String nombreGanador, int victoriasGanador);
 }

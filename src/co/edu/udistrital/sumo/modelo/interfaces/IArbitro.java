@@ -3,57 +3,52 @@ package co.edu.udistrital.sumo.modelo.interfaces;
 import co.edu.udistrital.sumo.modelo.cliente.Rikishi;
 
 /**
- * Contrato que define el comportamiento del árbitro del combate de sumo.
+ * Interfaz que representa al árbitro del combate de sumo.
  *
- * Propósito: Definir las operaciones de coordinación del combate que
- * {@link co.edu.udistrital.sumo.controlador.ControladorDohyo} debe implementar.
- * Permite que {@link co.edu.udistrital.sumo.controlador.HiloLuchador} dependa
- * de esta abstracción y no de la implementación concreta.
- * Principio SOLID:
- * D — las capas superiores dependen de esta abstracción, no del ControladorDohyo concreto.
- * I — interfaz específica para las operaciones de arbitraje del combate.
+ * Aquí se definen las acciones principales que controlan
+ * cómo se desarrolla la pelea entre los luchadores.
  *
- * @author Grupo Taller 3
- * @version 2.0
- * @see co.edu.udistrital.sumo.controlador.ControladorDohyo
+ * La idea es que otras clases trabajen con esta interfaz
+ * y no directamente con una implementación específica.
  */
 public interface IArbitro {
 
     /**
-     * Registra un luchador en el dohyō en la posición indicada.
+     * Sube un luchador al dohyo en una posición específica.
      *
-     * @param rikishi luchador que sube al ring
-     * @param indice  posición en el dohyō (0 o 1)
+     * @param rikishi luchador que entra al combate
+     * @param indice posición en el dohyo (0 o 1)
      */
     void subirLuchador(Rikishi rikishi, int indice);
 
     /**
-     * Bloquea el hilo actual hasta que ambos luchadores estén en el dohyō.
+     * Hace que el hilo espere hasta que los dos luchadores
+     * ya estén listos en el dohyo.
      *
-     * @throws InterruptedException si el hilo es interrumpido durante la espera
+     * @throws InterruptedException si ocurre una interrupción del hilo
      */
     void esperarAmbosLuchadores() throws InterruptedException;
 
     /**
-     * Ejecuta el turno del luchador indicado.
-     * Si no es su turno, el hilo espera hasta un máximo de 500ms.
+     * Controla el turno de cada luchador.
+     * Si no es su turno, el hilo espera un tiempo antes de continuar.
      *
-     * @param indiceLuchador índice (0 o 1) del luchador que ejecuta el turno
-     * @throws InterruptedException si el hilo es interrumpido durante la espera
+     * @param indiceLuchador indica cuál luchador está intentando jugar (0 o 1)
+     * @throws InterruptedException si el hilo es interrumpido
      */
     void ejecutarTurno(int indiceLuchador) throws InterruptedException;
 
     /**
      * Indica si el combate ya terminó.
      *
-     * @return {@code true} si hay un ganador y el combate finalizó
+     * @return true si ya hay un ganador, false si sigue en curso
      */
     boolean isCombateTerminado();
 
     /**
-     * Retorna el luchador ganador del combate.
+     * Devuelve el luchador ganador del combate.
      *
-     * @return el {@link Rikishi} ganador, o {@code null} si aún no terminó
+     * @return el Rikishi ganador, o null si aún no ha terminado
      */
     Rikishi getGanador();
 }
