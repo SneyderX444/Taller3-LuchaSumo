@@ -332,13 +332,17 @@ public class VistaServidor extends JFrame {
      * - Trae la ventana al frente (fix #6)
      */
     public void mostrarInicioCombate(String n1, String n2) {
-        combateEnCurso = true;                    // impide cerrar durante el combate
-        actualizarEstado("¡COMBATE INICIADO!  " + n1 + "  VS  " + n2);
+        combateEnCurso = true;
+        actualizarEstado("COMBATE INICIADO: " + n1 + " VS " + n2);
 
-        // Traer al frente sobre la ventana del cliente (fix #6)
+        // toFront() solo funciona si la ventana ya tiene foco en Windows.
+        // setAlwaysOnTop(true) fuerza que quede encima de las dos VistaCliente,
+        // y se desactiva de inmediato para no molestar durante el combate.
         setState(Frame.NORMAL);
+        setAlwaysOnTop(true);
         toFront();
         requestFocus();
+        setAlwaysOnTop(false);
     }
 
     /**

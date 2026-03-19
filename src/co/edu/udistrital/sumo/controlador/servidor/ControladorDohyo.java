@@ -1,5 +1,6 @@
 package co.edu.udistrital.sumo.controlador.servidor;
 
+import co.edu.udistrital.sumo.modelo.interfaces.IArbitro;
 import co.edu.udistrital.sumo.modelo.interfaces.ICombateObservador;
 import co.edu.udistrital.sumo.modelo.cliente.Kimarite;
 import co.edu.udistrital.sumo.modelo.cliente.Rikishi;
@@ -9,77 +10,53 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Controlador del combate de sumo: lógica, turnos y sincronización.
+ * Controlador del combate: logica, turnos y sincronizacion.
  *
- * <p>
- * Esta clase es el corazón del combate. Es el <b>monitor de sincronización</b>
- * compartido entre los dos {@link HiloLuchador}: todos sus métodos públicos
- * son {@code synchronized}, lo que garantiza que solo un hilo pueda modificar
- * el estado del dohyō a la vez.
- * </p>
+ * Implementa IArbitro (DIP de SOLID): HiloLuchador depende de la
+ * abstraccion IArbitro, no de esta clase concreta.
  *
- * <p>
- * Centraliza tres responsabilidades del combate:
- * <ul>
- *   <li>Selección aleatoria de kimarites del repertorio de cada luchador.</li>
- *   <li>Cálculo del resultado de cada técnica con probabilidad sesgada (15%).</li>
- *   <li>Gestión de turnos con {@code wait()} y {@code notifyAll()}.</li>
- * </ul>
- * </p>
+ * Es el monitor de sincronizacion compartido entre los dos HiloLuchador:
+ * todos los metodos publicos son synchronized, garantizando que solo
+ * un hilo modifique el dohyo a la vez.
  *
- * <p>
- * Los eventos del combate se notifican a los observadores registrados
- * (patrón Observer), lo que permite que {@link ControladorServidor}
- * actualice la vista sin que esta clase la conozca directamente.
- * </p>
+ * CORRECCION v2 - Ley de Demeter:
+ * Ya no se encadenan llamadas sobre objetos retornados por dohyo.
+ * En cambio, se usan los metodos de colaboracion de Dohyo:
+ *   dohyo.expulsarOponente(indice)   en lugar de dohyo.getLuchador(x).setDentroDelDohyo()
+ *   dohyo.asignarRivales()           en lugar de dohyo.getLuchador(0).setRival(...)
+ *   dohyo.getNombreLuchador(x)       en lugar de dohyo.getLuchador(x).getNombre()
+ *   dohyo.getNombreGanador()         en lugar de dohyo.getGanador().getNombre()
+ *   dohyo.getVictoriasGanador()      en lugar de dohyo.getGanador().getCombatesGanados()
  *
- * <p><b>Principios SOLID aplicados:</b></p>
- * <ul>
- *   <li>S — solo maneja la lógica y sincronización del combate.</li>
- *   <li>D — notifica a través de {@link ICombateObservador} (interfaz), no a la vista concreta.</li>
- * </ul>
+ * IMPORTANTE: una sola instancia compartida entre ambos HiloLuchador.
  *
- * <p><b>¡Importante!</b> Debe existir UNA SOLA instancia compartida entre ambos
- * {@link HiloLuchador}. Si cada hilo tuviera la suya, los locks serían sobre
- * objetos distintos y la sincronización no funcionaría.</p>
- *
- * <p><b>Restricciones:</b> esta clase no debe tener sockets, SQL ni componentes Swing.</p>
+ * PROHIBIDO: sockets, SQL, componentes Swing.
  *
  * @author Grupo Taller 3
  * @version 2.0
- * @see Dohyo
- * @see HiloLuchador
- * @see ICombateObservador
  */
-public class ControladorDohyo {
+public class ControladorDohyo implements IArbitro {
 
-    /**
-     * Tiempo máximo que un luchador espera su turno (en milisegundos).
-     * Según el enunciado del taller: máximo 500 ms de espera entre turnos.
-     */
+    // Tiempo maximo de espera por turno en ms (segun enunciado: maximo 500ms)
     public static final int MAX_ESPERA_MS = 500;
 
-    /**
-     * Probabilidad de que un kimarite expulse al oponente del dohyō (sobre 100).
-     * Con 10%, la mayoría de los ataques no terminan el combate de inmediato,
-     * pero en algún momento sí ocurre la expulsión.
-     */
+    // Probabilidad de expulsion por kimarite (10%)
     private static final int PROBABILIDAD_EXPULSION = 10;
 
-    /** Estado del ring: luchadores, turno actual, ganador y banderas de control. */
+    // Estado puro del ring
     private final Dohyo dohyo;
 
-    /** Generador de números aleatorios para seleccionar kimarites y calcular resultados. */
+    // Generador de numeros aleatorios
     private final Random random;
 
-    /** Lista de observadores que reciben notificaciones de los eventos del combate. */
+    // Observadores del combate (patron Observer)
     private final List<ICombateObservador> observadores;
 
     /**
-     * Crea el controlador del combate con el dohyō compartido.
-     * Esta instancia se debe pasar a <b>ambos</b> {@link HiloLuchador}.
+     * Crea el controlador del combate con el dohyo compartido.
+     * Esta instancia DEBE pasarse a ambos HiloLuchador.
      *
-     * @param dohyo estado compartido del ring de sumo
+     * @param dohyo estado compartido del ring
      */
     public ControladorDohyo(Dohyo dohyo) {
         this.dohyo        = dohyo;
@@ -87,187 +64,140 @@ public class ControladorDohyo {
         this.observadores = new ArrayList<>();
     }
 
-    /**
-     * Registra un objeto que quiere recibir notificaciones de los eventos del combate.
-     * Normalmente el único observador es el {@link ControladorServidor}.
-     *
-     * @param observador objeto que implementa {@link ICombateObservador}
-     */
-    public synchronized void agregarObservador(ICombateObservador observador) {
-        if (observador != null) {
-            observadores.add(observador);
-        }
+    // Registra un observador para recibir eventos del combate
+    public synchronized void agregarObservador(ICombateObservador obs) {
+        if (obs != null) observadores.add(obs);
     }
 
     /**
-     * Sube un luchador al dohyō en la posición indicada.
-     *
-     * <p>Coloca al luchador en el slot correspondiente del dohyō,
-     * lo marca como "dentro" y notifica a los observadores de su llegada.
-     * Llama a {@code notifyAll()} para despertar al hilo que espera
-     * en {@link #esperarAmbosLuchadores()}.</p>
-     *
-     * @param rikishi luchador que entra al ring
-     * @param indice  posición en el dohyō (0 = primero, 1 = segundo)
+     * {@inheritDoc}
+     * Registra al luchador, lo marca como presente y notifica a observadores.
+     * notifyAll despierta al hilo esperando en esperarAmbosLuchadores().
      */
+    @Override
     public synchronized void subirLuchador(Rikishi rikishi, int indice) {
         rikishi.setDentroDelDohyo(true);
         dohyo.setLuchador(rikishi, indice);
         notifyAll();
-        notificarLuchadorLlego(rikishi.getNombre(), rikishi.getPeso(), indice);
+        // Ley de Demeter: usamos getNombreLuchador y getPesoLuchador de Dohyo
+        notificarLuchadorLlego(
+            dohyo.getNombreLuchador(indice),
+            dohyo.getPesoLuchador(indice),
+            indice);
     }
 
     /**
-     * Bloquea el hilo actual hasta que los dos luchadores estén en el dohyō.
-     *
-     * <p>La asignación de rivales y el anuncio del inicio del combate
-     * ocurren una sola vez gracias a la bandera {@code combateAnunciado}
-     * del dohyō, incluso si los dos hilos llegan aquí casi al mismo tiempo.</p>
-     *
-     * @throws InterruptedException si el hilo es interrumpido mientras espera
+     * {@inheritDoc}
+     * Bloquea hasta que ambos luchadores esten en el dohyo.
+     * La asignacion de rivales y el anuncio ocurren solo una vez.
      */
+    @Override
     public synchronized void esperarAmbosLuchadores() throws InterruptedException {
         while (!dohyo.ambosLuchadoresPresentes()) {
             wait();
         }
-        // Solo el primer hilo en pasar por aquí anuncia el inicio
         if (!dohyo.isCombateAnunciado()) {
             dohyo.setCombateAnunciado(true);
-            dohyo.getLuchador(0).setRival(dohyo.getLuchador(1));
-            dohyo.getLuchador(1).setRival(dohyo.getLuchador(0));
+            // Ley de Demeter: asignarRivales() en lugar de getLuchador(0).setRival(getLuchador(1))
+            dohyo.asignarRivales();
             notificarCombateIniciado(
-                dohyo.getLuchador(0).getNombre(),
-                dohyo.getLuchador(1).getNombre());
+                dohyo.getNombreLuchador(0),
+                dohyo.getNombreLuchador(1));
         }
     }
 
     /**
-     * Ejecuta el turno del luchador indicado.
-     *
-     * <p>Flujo del turno:</p>
-     * <ol>
-     *   <li>Si no es el turno de este luchador, espera hasta {@value #MAX_ESPERA_MS} ms.</li>
-     *   <li>Selecciona un kimarite aleatorio de su repertorio.</li>
-     *   <li>Calcula si hay expulsión (probabilidad {@value #PROBABILIDAD_EXPULSION}%).</li>
-     *   <li>Si hay expulsión: marca el combate como terminado y notifica.</li>
-     *   <li>Si no: cede el turno al oponente y notifica.</li>
-     * </ol>
-     *
-     * @param indiceLuchador índice (0 o 1) del luchador que ataca
-     * @throws InterruptedException si el hilo es interrumpido mientras espera el turno
+     * {@inheritDoc}
+     * Ejecuta el turno: espera, selecciona kimarite, calcula resultado y notifica.
      */
+    @Override
     public synchronized void ejecutarTurno(int indiceLuchador)
             throws InterruptedException {
 
-        long tiempoInicio = System.currentTimeMillis();
+        long inicio = System.currentTimeMillis();
 
-        // Esperar hasta que sea el turno de este luchador o el combate ya terminó
         while (dohyo.getTurnoActual() != indiceLuchador
                 && !dohyo.isCombateTerminado()) {
-            long transcurrido = System.currentTimeMillis() - tiempoInicio;
-            long restante = MAX_ESPERA_MS - transcurrido;
-            if (restante <= 0) return; // Se agotó el tiempo: ceder el control
+            long restante = MAX_ESPERA_MS - (System.currentTimeMillis() - inicio);
+            if (restante <= 0) return;
             wait(restante);
         }
 
         if (dohyo.isCombateTerminado()) return;
 
+        // getLuchador es aceptable aqui: necesitamos el objeto para pasar a seleccionarKimarite
         Rikishi atacante = dohyo.getLuchador(indiceLuchador);
 
-        // Elegir una técnica aleatoria del repertorio del luchador
+        // Null-check defensivo (SOLID - robustez)
+        if (atacante == null) return;
+
         Kimarite kimarite = seleccionarKimariteAleatorio(atacante);
         if (kimarite == null) {
-            // El luchador no tiene técnicas: ceder el turno sin atacar
             dohyo.setTurnoActual(1 - indiceLuchador);
             notifyAll();
             return;
         }
 
-        // Número aleatorio entre 0 y 99 — expulsión si cae por debajo del umbral
         boolean expulsado = random.nextInt(100) < PROBABILIDAD_EXPULSION;
 
         if (expulsado) {
-            // El oponente sale del dohyō: el atacante gana
-            int indiceOponente = 1 - indiceLuchador;
-            Rikishi oponente = dohyo.getLuchador(indiceOponente);
-            oponente.setDentroDelDohyo(false);
-            atacante.setCombatesGanados(atacante.getCombatesGanados() + 1);
-            dohyo.setGanador(atacante);
-            dohyo.setCombateTerminado(true);
+            // Ley de Demeter: expulsarOponente() en lugar de getLuchador(x).setDentroDelDohyo()
+            // y en lugar de getGanador().getCombatesGanados()
+            dohyo.expulsarOponente(indiceLuchador);
             notifyAll();
-            notificarKimariteEjecutado(atacante.getNombre(), kimarite.getNombre(), true);
-            notificarCombateTerminado(atacante.getNombre(), atacante.getCombatesGanados());
+            notificarKimariteEjecutado(
+                dohyo.getNombreGanador(),
+                kimarite.getNombre(),
+                true);
+            // Ley de Demeter: getNombreGanador() y getVictoriasGanador() de Dohyo
+            notificarCombateTerminado(
+                dohyo.getNombreGanador(),
+                dohyo.getVictoriasGanador());
         } else {
-            // El oponente resiste: cambiar el turno
             dohyo.setTurnoActual(1 - indiceLuchador);
             notifyAll();
-            notificarKimariteEjecutado(atacante.getNombre(), kimarite.getNombre(), false);
+            // Ley de Demeter: getNombreLuchador en lugar de getLuchador(x).getNombre()
+            notificarKimariteEjecutado(
+                dohyo.getNombreLuchador(indiceLuchador),
+                kimarite.getNombre(),
+                false);
         }
     }
 
-    /**
-     * Indica si el combate ya terminó con un ganador.
-     *
-     * @return {@code true} si el combate terminó
-     */
+    /** {@inheritDoc} */
+    @Override
     public synchronized boolean isCombateTerminado() {
         return dohyo.isCombateTerminado();
     }
 
-    /**
-     * Retorna el luchador que ganó el combate.
-     *
-     * @return el {@link Rikishi} ganador, o {@code null} si el combate aún no terminó
-     */
+    /** {@inheritDoc} */
+    @Override
     public synchronized Rikishi getGanador() {
         return dohyo.getGanador();
     }
 
-    // ── Lógica de selección de kimarite ───────────────────────────────────────
-
-    /**
-     * Elige aleatoriamente un kimarite del repertorio del luchador.
-     *
-     * @param rikishi luchador del que se selecciona la técnica
-     * @return kimarite elegido, o {@code null} si el luchador no tiene técnicas
-     */
+    // Selecciona un kimarite aleatorio del repertorio del luchador
     private Kimarite seleccionarKimariteAleatorio(Rikishi rikishi) {
-        if (rikishi.getKimarites() == null || rikishi.getKimarites().isEmpty()) {
+        // Null-check defensivo: evita NPE si rikishi o su lista son null
+        if (rikishi == null
+                || rikishi.getKimarites() == null
+                || rikishi.getKimarites().isEmpty()) {
             return null;
         }
-        int indice = random.nextInt(rikishi.getKimarites().size());
-        return rikishi.getKimarites().get(indice);
+        return rikishi.getKimarites().get(random.nextInt(rikishi.getKimarites().size()));
     }
 
-    // ── Notificaciones a observadores ─────────────────────────────────────────
-
-    /** Avisa a los observadores que un luchador llegó al dohyō. */
+    // Notificaciones a observadores
     private void notificarLuchadorLlego(String nombre, double peso, int indice) {
-        for (ICombateObservador obs : observadores) {
-            obs.onLuchadorLlego(nombre, peso, indice);
-        }
+        for (ICombateObservador obs : observadores) obs.onLuchadorLlego(nombre, peso, indice);
     }
-
-    /** Avisa a los observadores que el combate comenzó. */
-    private void notificarCombateIniciado(String nombreL1, String nombreL2) {
-        for (ICombateObservador obs : observadores) {
-            obs.onCombateIniciado(nombreL1, nombreL2);
-        }
+    private void notificarCombateIniciado(String n1, String n2) {
+        for (ICombateObservador obs : observadores) obs.onCombateIniciado(n1, n2);
     }
-
-    /** Avisa a los observadores el resultado de un kimarite. */
-    private void notificarKimariteEjecutado(String nombreLuchador,
-                                              String nombreKimarite,
-                                              boolean expulsado) {
-        for (ICombateObservador obs : observadores) {
-            obs.onKimariteEjecutado(nombreLuchador, nombreKimarite, expulsado);
-        }
+    private void notificarKimariteEjecutado(String luchador, String kimarite, boolean exp) {
+        for (ICombateObservador obs : observadores) obs.onKimariteEjecutado(luchador, kimarite, exp);
     }
-
-    /** Avisa a los observadores que el combate terminó con un ganador. */
-    private void notificarCombateTerminado(String nombreGanador, int victorias) {
-        for (ICombateObservador obs : observadores) {
-            obs.onCombateTerminado(nombreGanador, victorias);
-        }
+    private void notificarCombateTerminado(String ganador, int victorias) {
+        for (ICombateObservador obs : observadores) obs.onCombateTerminado(ganador, victorias);
     }
 }

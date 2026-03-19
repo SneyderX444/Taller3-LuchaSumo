@@ -17,17 +17,15 @@ import java.util.List;
  * - Validar los datos ingresados por el usuario.
  * - Conectar al servidor vía {@link ConexionCliente} y enviar los datos.
  * - Esperar la respuesta del combate y notificar el resultado a la Vista.
- * Las acciones de botones están desacopladas en {@link AccionCargarKimarites}
- * y {@link AccionConectar}.
- * Se comunica con: {@link VistaCliente} (vista), {@link CargadorPropiedades}
- * (modelo - conexión properties), {@link ConexionCliente} (modelo - socket).
+ * Las acciones de botones están desacopladas en {@link AccionCargarKimarites} y {@link AccionConectar}.
+ * Se comunica con: {@link VistaCliente} (vista), {@link CargadorPropiedades}(modelo - conexión properties), {@link ConexionCliente} (modelo - socket).
  * Principio SOLID:
  * S — única responsabilidad: coordinar el flujo del cliente.
  *
  * PROHIBIDO en esta clase: JFileChooser, ServerSocket, componentes Swing directos.
  *
- * @author Grupo Taller 3
- * @version 2.0
+ * @author Grupo Programación avanzada
+ * @version 2.6
  * @see VistaCliente
  * @see ConexionCliente
  * @see CargadorPropiedades
@@ -47,8 +45,7 @@ public class ControladorCliente {
     private final CargadorPropiedades cargadorPropiedades;
 
     /**
-     * Construye el controlador del cliente, inicializa la vista y registra
-     * las acciones desacopladas en los botones.
+     * Construye el controlador del cliente, inicializa la vista y registra las acciones desacopladas en los botones.
      */
     public ControladorCliente() {
         this.cargadorPropiedades = new CargadorPropiedades();
@@ -148,10 +145,10 @@ public class ControladorCliente {
      * Ejecuta el flujo completo: conectar, enviar datos, esperar resultado y cerrar.
      * Se ejecuta en el hilo de fondo iniciado por {@link #conectarAlServidor()}.
      *
-     * <p>El orden es importante: primero se muestra el resultado al usuario
+     * El orden es importante: primero se muestra el resultado al usuario
      * y se espera a que presione OK ({@code invokeAndWait}), y solo después
      * se envía "LISTO" al servidor. Esto garantiza que el servidor no cierre
-     * su ventana hasta que ambos clientes hayan confirmado con OK.</p>
+     * su ventana hasta que ambos clientes hayan confirmado con OK.
      *
      * @param mensajeServidor datos del luchador formateados para el servidor
      */

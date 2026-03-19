@@ -8,13 +8,13 @@ import java.awt.event.ActionListener;
  *
  * Propósito: Desacoplar el evento del botón de la lógica de negocio,
  * delegando completamente al {@link ControladorCliente}.
- * Cumple la separación evento/listener/performed exigida por el taller (regla r).
+ * Cumple la separación evento/listener/performed exigida por el taller.
  * Se comunica con: {@link ControladorCliente} (único receptor de la acción).
  * Principio SOLID:
  * S — única responsabilidad: delegar la carga de kimarites al controlador.
  *
- * @author Grupo Taller 3
- * @version 2.0
+ * @author Grupo Programacióna avanzada 
+ * @version 2.6
  * @see ControladorCliente
  * @see AccionConectar
  */
