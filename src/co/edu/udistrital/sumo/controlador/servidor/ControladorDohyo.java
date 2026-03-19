@@ -61,10 +61,10 @@ public class ControladorDohyo {
 
     /**
      * Probabilidad de que un kimarite expulse al oponente del dohyō (sobre 100).
-     * Con 15%, la mayoría de los ataques no terminan el combate de inmediato,
+     * Con 10%, la mayoría de los ataques no terminan el combate de inmediato,
      * pero en algún momento sí ocurre la expulsión.
      */
-    private static final int PROBABILIDAD_EXPULSION = 15;
+    private static final int PROBABILIDAD_EXPULSION = 10;
 
     /** Estado del ring: luchadores, turno actual, ganador y banderas de control. */
     private final Dohyo dohyo;
