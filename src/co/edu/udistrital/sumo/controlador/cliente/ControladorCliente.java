@@ -148,6 +148,11 @@ public class ControladorCliente {
      * Ejecuta el flujo completo: conectar, enviar datos, esperar resultado y cerrar.
      * Se ejecuta en el hilo de fondo iniciado por {@link #conectarAlServidor()}.
      *
+     * <p>El orden es importante: primero se muestra el resultado al usuario
+     * y se espera a que presione OK ({@code invokeAndWait}), y solo después
+     * se envía "LISTO" al servidor. Esto garantiza que el servidor no cierre
+     * su ventana hasta que ambos clientes hayan confirmado con OK.</p>
+     *
      * @param mensajeServidor datos del luchador formateados para el servidor
      */
     private void ejecutarCombate(String mensajeServidor) {
@@ -156,21 +161,27 @@ public class ControladorCliente {
             conexion.conectar();
             actualizarVista("Conectado. Esperando al oponente...");
 
-            //Enviar datos del luchador al servidor
+            // Enviar datos del luchador al servidor
             conexion.enviar(mensajeServidor);
 
-            //Esperar resultado del combate (bloqueante)
+            // Esperar resultado del combate (bloqueante hasta que el servidor responda)
             String resultado = conexion.recibirRespuesta();
 
-            if ("GANASTE".equals(resultado)) {
-                actualizarVista("¡GANASTE EL COMBATE!");
-                mostrarResultado(true);
-            } else {
-                actualizarVista("Perdiste el combate...");
-                mostrarResultado(false);
+            boolean gano = "GANASTE".equals(resultado);
+            actualizarVista(gano ? "¡GANASTE EL COMBATE!" : "Perdiste el combate...");
+
+            // invokeAndWait bloquea este hilo hasta que el usuario presione OK
+            // y la vista se cierre — solo entonces se continúa con el LISTO
+            try {
+                javax.swing.SwingUtilities.invokeAndWait(
+                    () -> vista.mostrarResultadoCombate(gano));
+            } catch (java.lang.reflect.InvocationTargetException ex) {
+                // Si la vista lanzó una excepción, la ignoramos y seguimos
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
             }
 
-            //Confirmar al servidor que el cliente terminó
+            // El usuario ya presionó OK — ahora sí avisamos al servidor
             conexion.enviar("LISTO");
 
         } catch (IOException e) {
@@ -180,13 +191,8 @@ public class ControladorCliente {
         }
     }
 
-    //Actualiza el estado de la vista desde un hilo de fondo (respeta el EDT)
+    // Actualiza el estado de la vista desde un hilo de fondo (respeta el EDT)
     private void actualizarVista(String mensaje) {
         javax.swing.SwingUtilities.invokeLater(() -> vista.mostrarEstado(mensaje));
-    }
-
-    //Muestra el resultado final en la vista desde un hilo de fondo (respeta el EDT)
-    private void mostrarResultado(boolean gano) {
-        javax.swing.SwingUtilities.invokeLater(() -> vista.mostrarResultadoCombate(gano));
     }
 }
